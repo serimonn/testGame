@@ -6,18 +6,41 @@ import { DurableObject } from "cloudflare:workers";
       /                → ゲーム一覧
       /gattai-drive/   → 合体ドライブ
   - WebSocket だけ Worker が受ける
-      /gattai-drive/ws/<部屋コード> → Durable Object「GattaiRoom」
+      /gattai-drive/ws/<部屋コード>?cid=<端末ごとのID> → Durable Object「GattaiRoom」
 */
 
 // 合体ドライブの部屋：1部屋 = 1 Durable Object。2人分のWebSocketをつなぐ中継役だけ。
 // 物理計算はホスト（slot 0）のスマホが担当する。
 export class GattaiRoom extends DurableObject {
+  constructor(ctx, env) {
+    super(ctx, env);
+    // 接続維持の "ping" には部屋を起こさずに "pong" を返す（課金対象にもならない）
+    this.ctx.setWebSocketAutoResponse(new WebSocketRequestResponsePair("ping", "pong"));
+  }
+
   async fetch(request) {
+    const url = new URL(request.url);
+    const cid = (url.searchParams.get("cid") || "").slice(0, 40);
     const { 0: client, 1: server } = new WebSocketPair();
 
-    const sockets = this.ctx.getWebSockets();
-    const used = sockets.map((ws) => ws.deserializeAttachment()?.slot);
-    const slot = [0, 1].find((i) => !used.includes(i));
+    let sockets = this.ctx.getWebSockets().filter((ws) => !ws.deserializeAttachment()?.replaced);
+
+    // 同じ端末からの再接続：古い接続（電波が切れて残っているもの）を閉じて、同じ席に座らせる
+    let slot;
+    if (cid) {
+      const old = sockets.find((ws) => ws.deserializeAttachment()?.cid === cid);
+      if (old) {
+        const att = old.deserializeAttachment();
+        slot = att.slot;
+        old.serializeAttachment({ ...att, replaced: true });
+        try { old.close(4001, "replaced"); } catch {}
+        sockets = sockets.filter((ws) => ws !== old);
+      }
+    }
+    if (slot === undefined) {
+      const used = sockets.map((ws) => ws.deserializeAttachment()?.slot);
+      slot = [0, 1].find((i) => !used.includes(i));
+    }
 
     if (slot === undefined) {
       server.accept();
@@ -27,7 +50,7 @@ export class GattaiRoom extends DurableObject {
     }
 
     this.ctx.acceptWebSocket(server);
-    server.serializeAttachment({ slot });
+    server.serializeAttachment({ slot, cid });
     server.send(JSON.stringify({ t: "welcome", slot, peer: sockets.length > 0 }));
     for (const ws of sockets) safeSend(ws, JSON.stringify({ t: "peer_join" }));
 
@@ -36,13 +59,16 @@ export class GattaiRoom extends DurableObject {
 
   async webSocketMessage(ws, message) {
     for (const other of this.ctx.getWebSockets()) {
-      if (other !== ws) safeSend(other, message);
+      if (other !== ws && !other.deserializeAttachment()?.replaced) safeSend(other, message);
     }
   }
 
   async webSocketClose(ws) {
-    for (const other of this.ctx.getWebSockets()) {
-      if (other !== ws) safeSend(other, JSON.stringify({ t: "peer_leave" }));
+    // 再接続で置き換えた古い接続が閉じただけなら、相方には知らせない
+    if (!ws.deserializeAttachment()?.replaced) {
+      for (const other of this.ctx.getWebSockets()) {
+        if (other !== ws && !other.deserializeAttachment()?.replaced) safeSend(other, JSON.stringify({ t: "peer_leave" }));
+      }
     }
     try { ws.close(1000, "bye"); } catch {}
   }

@@ -641,59 +641,158 @@ let outbox = [];
 
 function showScreen(id) {
   for (const el of document.querySelectorAll('.screen')) el.classList.toggle('active', el.id === id);
-  if (id === 'game') resize();
+  if (id === 'game') { resize(); requestWakeLock(); }
 }
 
-function connect(code) {
-  disconnect();
+/* ---------- 接続が途切れても続けられるように ----------
+   ・端末ごとのID（cid）で再接続すると、サーバーは同じ席（ホスト/ゲスト）に戻す
+   ・自分が切れたら自動で再接続を繰り返す（約25秒）
+   ・相方が切れたらゲームを一時停止して、戻ってくるのを待つ（約30秒）
+   ・20秒ごとに "ping" を送って、待機中やリザルト画面でも接続が切られないようにする */
+const CID = (() => {
+  let id = '';
+  try { id = sessionStorage.getItem('gattai_cid') || ''; } catch {}
+  if (!id) {
+    id = Math.random().toString(36).slice(2, 10) + Date.now().toString(36);
+    try { sessionStorage.setItem('gattai_cid', id); } catch {}
+  }
+  return id;
+})();
+const RETRY_DELAYS = [300, 800, 1500, 2500, 4000, 6000, 9000];
+const PEER_WAIT_SEC = 30;
+let reconnecting = false, retryIdx = 0, retryTimer = 0;
+let paused = false, peerWaitTimer = 0, peerWaitUntil = 0;
+
+function connect(code, resume = false) {
+  if (resume) { if (net.ws) { const w = net.ws; net.ws = null; try { w.close(); } catch {} } }
+  else disconnect();
   net.code = code;
   const proto = location.protocol === 'https:' ? 'wss' : 'ws';
   // ページと同じフォルダ配下の ws/ に接続（/gattai-drive/ なら /gattai-drive/ws/1234）
   const base = location.pathname.replace(/[^/]*$/, '');
-  const ws = new WebSocket(`${proto}://${location.host}${base}ws/${code}`);
+  const ws = new WebSocket(`${proto}://${location.host}${base}ws/${code}?cid=${encodeURIComponent(CID)}`);
   net.ws = ws;
-  ws.onmessage = (e) => onNet(JSON.parse(e.data));
+  ws.onmessage = (e) => {
+    if (e.data === 'pong') return;
+    onNet(JSON.parse(e.data));
+  };
   ws.onclose = () => {
     if (net.ws !== ws) return;
     net.ws = null;
-    if (mode !== 'none' && mode !== 'solo') notice('接続が切れました');
+    if (mode === 'host' || mode === 'guest') scheduleReconnect();
+    else if (mode === 'none') $('#lobbyMsg').textContent = '接続できませんでした';
   };
-  ws.onerror = () => { $('#lobbyMsg').textContent = '接続できませんでした'; };
+  ws.onerror = () => {};
 }
 function disconnect() {
+  stopReconnect();
+  clearTimeout(peerWaitTimer); paused = false;
   if (net.ws) { const w = net.ws; net.ws = null; try { w.close(); } catch {} }
   net.slot = -1; net.peer = false;
+}
+function scheduleReconnect() {
+  if (!reconnecting) { reconnecting = true; retryIdx = 0; }
+  showConn('通信が途切れました', '再接続しています…');
+  if (retryIdx >= RETRY_DELAYS.length) {
+    reconnecting = false;
+    hideConn();
+    notice('接続が切れました。電波のよい場所で、もう一度部屋に入ってください');
+    return;
+  }
+  clearTimeout(retryTimer);
+  retryTimer = setTimeout(() => connect(net.code, true), RETRY_DELAYS[retryIdx++]);
+}
+function stopReconnect() { reconnecting = false; clearTimeout(retryTimer); }
+
+// 画面に戻ってきたら、切れていればすぐつなぎ直す
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState !== 'visible') return;
+  if ((mode === 'host' || mode === 'guest') && (!net.ws || net.ws.readyState > 1)) {
+    clearTimeout(retryTimer); reconnecting = true; retryIdx = 0;
+    connect(net.code, true);
+  }
+  requestWakeLock();
+});
+setInterval(() => { if (net.ws && net.ws.readyState === 1) net.ws.send('ping'); }, 20000);
+
+// ゲーム中は画面を自動で消さない（対応ブラウザのみ）
+let wakeLock = null;
+async function requestWakeLock() {
+  if (mode === 'none' || !$('#game').classList.contains('active')) return;
+  try { if (navigator.wakeLock && !wakeLock) { wakeLock = await navigator.wakeLock.request('screen'); wakeLock.addEventListener('release', () => { wakeLock = null; }); } } catch {}
+}
+function releaseWakeLock() { try { wakeLock && wakeLock.release(); } catch {} wakeLock = null; }
+
+function showConn(title, text) {
+  $('#connTitle').textContent = title; $('#connText').textContent = text;
+  $('#conn').classList.add('show');
+}
+function hideConn() { $('#conn').classList.remove('show'); }
+
+// 相方が切れた：ゲームを止めて待つ
+function waitForPeer() {
+  paused = true;
+  peerWaitUntil = performance.now() + PEER_WAIT_SEC * 1000;
+  const tick = () => {
+    if (net.peer || !paused) return;
+    const left = Math.ceil((peerWaitUntil - performance.now()) / 1000);
+    if (left <= 0) { giveUpPeer(); return; }
+    showConn('相方の通信が途切れました', `戻ってくるのを待っています…（あと${left}秒）`);
+    peerWaitTimer = setTimeout(tick, 250);
+  };
+  clearTimeout(peerWaitTimer); tick();
+}
+function peerBack() {
+  clearTimeout(peerWaitTimer);
+  paused = false; hideConn();
+  sendAcc = 1; sentResult = false; // ホストは最新の状態をすぐ送り直す
+}
+function giveUpPeer() {
+  clearTimeout(peerWaitTimer);
+  paused = false; hideConn();
+  sim = null; view = null;
+  hideOverlays();
+  showScreen('waiting');
+  $('#waitText').innerHTML = '相方がいなくなりました…<br>もう一度招待してください';
 }
 function send(obj) { if (net.ws && net.ws.readyState === 1) net.ws.send(JSON.stringify(obj)); }
 
 function onNet(m) {
   switch (m.t) {
     case 'full':
+      if (reconnecting) { stopReconnect(); hideConn(); notice('接続が切れました。もう一度部屋に入ってください'); break; }
       $('#lobbyMsg').textContent = 'その部屋は満員です';
       mode = 'none'; disconnect(); showScreen('lobby');
       break;
-    case 'welcome':
+    case 'welcome': {
+      const resumed = reconnecting && (sim || view);
+      stopReconnect(); hideConn();
       net.slot = m.slot;
+      net.peer = !!m.peer;
       mode = m.slot === 0 ? 'host' : 'guest';
       history.replaceState(null, '', `?room=${net.code}`);
       $('#roomCode').textContent = net.code;
-      if (m.peer) {
+      if (resumed) {
+        // 再接続できた：続きから
+        if (m.peer) peerBack(); else waitForPeer();
+      } else if (m.peer) {
         if (mode === 'host') startHostGame(); else { showScreen('game'); }
       } else {
         showScreen('waiting');
       }
       break;
+    }
     case 'peer_join':
       net.peer = true;
-      if (mode === 'host') startHostGame();
+      if (paused) peerBack();
+      else if (mode === 'host' && !sim) startHostGame();
+      else if (mode === 'host') { sendAcc = 1; sentResult = false; }
       break;
     case 'peer_leave':
       net.peer = false;
-      sim = null; view = null;
-      hideOverlays();
-      // 残った側は待機画面へ。もし自分がゲストなら次に来た人がホストになる
-      showScreen('waiting');
-      $('#waitText').innerHTML = '相方がいなくなりました…<br>もう一度招待してください';
+      // ゲーム中なら一時停止して戻りを待つ。待機画面ならそのまま
+      if ((sim || view) && $('#game').classList.contains('active')) waitForPeer();
+      else giveUpPeer();
       break;
     case 'in':
       remote = { s: +m.s || 0, p: +m.p || 0 };
@@ -768,10 +867,11 @@ $('#btnShare').onclick = async () => {
   } catch {}
 };
 $('#btnNotice').onclick = backToLobby;
+$('#btnConnQuit').onclick = backToLobby;
 
 function backToLobby() {
   mode = 'none'; disconnect(); sim = null; view = null; shown = null;
-  hideOverlays();
+  hideOverlays(); hideConn(); releaseWakeLock();
   history.replaceState(null, '', location.pathname);
   $('#waitText').innerHTML = '相方を待っています…<br>コードかリンクを送ってください';
   $('#btnShare').textContent = '招待リンクを送る';
@@ -1449,7 +1549,7 @@ function frame(now) {
   readInput();
   wheelEl.style.transform = `rotate(${input.steer * 120}deg)`;
 
-  if ((mode === 'host' || mode === 'solo') && sim) {
+  if ((mode === 'host' || mode === 'solo') && sim && !paused && !reconnecting) {
     acc += dt;
     let steps = 0;
     while (acc >= 1 / 60 && steps < 6) {

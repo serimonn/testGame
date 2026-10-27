@@ -22,7 +22,9 @@ const server = http.createServer((req, res) => {
 });
 
 server.on("upgrade", (req, sock) => {
-  const m = new URL(req.url, "http://x").pathname.match(/^\/gattai-drive\/ws\/([A-Za-z0-9]{1,12})$/);
+  const reqUrl = new URL(req.url, "http://x");
+  const cid = (reqUrl.searchParams.get("cid") || "").slice(0, 40);
+  const m = reqUrl.pathname.match(/^\/gattai-drive\/ws\/([A-Za-z0-9]{1,12})$/);
   if (!m) return sock.destroy();
   const accept = crypto.createHash("sha1")
     .update(req.headers["sec-websocket-key"] + "258EAFA5-E914-47DA-95CA-C5AB0DC85B11").digest("base64");
@@ -32,11 +34,17 @@ server.on("upgrade", (req, sock) => {
   const code = m[1].toUpperCase();
   const room = rooms.get(code) || [];
   rooms.set(code, room);
-  const used = room.map((c) => c.slot);
-  const slot = [0, 1].find((i) => !used.includes(i));
+  // 同じ端末からの再接続は古い接続を捨てて同じ席に（src/index.js と同じルール）
+  let slot;
+  const old = cid && room.find((c) => c.cid === cid);
+  if (old) { slot = old.slot; old.replaced = true; room.splice(room.indexOf(old), 1); old.sock.destroy(); }
+  if (slot === undefined) {
+    const used = room.map((c) => c.slot);
+    slot = [0, 1].find((i) => !used.includes(i));
+  }
   if (slot === undefined) { sendText(sock, JSON.stringify({ t: "full" })); return sock.end(); }
 
-  const me = { sock, slot };
+  const me = { sock, slot, cid };
   const others = room.slice();
   room.push(me);
   sendText(sock, JSON.stringify({ t: "welcome", slot, peer: others.length > 0 }));
@@ -47,7 +55,7 @@ server.on("upgrade", (req, sock) => {
   const close = () => {
     if (closed) return; closed = true;
     const i = room.indexOf(me); if (i >= 0) room.splice(i, 1);
-    for (const o of room) sendText(o.sock, JSON.stringify({ t: "peer_leave" }));
+    if (!me.replaced) for (const o of room) sendText(o.sock, JSON.stringify({ t: "peer_leave" }));
     sock.destroy();
   };
   sock.on("data", (chunk) => {
@@ -57,6 +65,7 @@ server.on("upgrade", (req, sock) => {
       if (!fr) break;
       buf = buf.subarray(fr.len);
       if (fr.op === 8) return close();
+      if (fr.op === 1 && fr.data.toString() === "ping") { sendText(sock, "pong"); continue; }
       if (fr.op === 1) for (const o of room) if (o !== me) sendText(o.sock, fr.data.toString());
     }
   });
