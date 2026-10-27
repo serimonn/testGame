@@ -665,7 +665,7 @@ let paused = false, peerWaitTimer = 0, peerWaitUntil = 0;
 
 function connect(code, resume = false) {
   if (resume) { if (net.ws) { const w = net.ws; net.ws = null; try { w.close(); } catch {} } }
-  else disconnect();
+  else { disconnect(); snaps.length = 0; lagHist.length = 0; clockOff = null; }
   net.code = code;
   const proto = location.protocol === 'https:' ? 'wss' : 'ws';
   // ページと同じフォルダ配下の ws/ に接続（/gattai-drive/ なら /gattai-drive/ws/1234）
@@ -831,11 +831,36 @@ function startSolo(type) {
   showScreen('game');
 }
 
+/* ---------- ゲスト側のなめらか表示（スナップショット補間） ----------
+   ホストから届いた状態を時刻つきでためておき、「少し前の時刻」を表示する。
+   その時刻をはさむ2つの状態のあいだを補間するので、届く間隔がばらついても一定の速さで動く。
+   どれだけ前を表示するかは、届く間隔のばらつきに合わせて自動で調整する */
+const snaps = [];
+let clockOff = null;            // 受信時刻 − 送信時刻 の最小値（ネットの最短遅延＋時計のずれ）
+let playDelay = 160;            // 何ミリ秒前を表示するか（自動調整）
+const lagHist = [];
+
 function receiveState(m) {
   const first = !view;
+  const now = performance.now();
   view = m;
-  view._t = performance.now();
+  view._t = now;
   if (m.ev) for (const ev of m.ev) handleEvent(ev);
+  if (m.ht !== undefined) {
+    const last = snaps[snaps.length - 1];
+    if (last && m.ht < last.ht - 1000) { snaps.length = 0; clockOff = null; lagHist.length = 0; } // ホストが読み込み直した
+    const lag = now - m.ht;
+    lagHist.push({ at: now, lag });
+    while (lagHist.length && lagHist[0].at < now - 4000) lagHist.shift();
+    let minLag = Infinity, maxLag = -Infinity;
+    for (const h of lagHist) { minLag = Math.min(minLag, h.lag); maxLag = Math.max(maxLag, h.lag); }
+    clockOff = minLag;
+    // 送信間隔（100ms）＋ばらつき ぶんだけ遅らせれば、ほぼ常に「次の状態」が手元にある
+    const want = clamp(100 + (maxLag - minLag) + 20, 110, 320);
+    playDelay += (want - playDelay) * (want > playDelay ? 0.3 : 0.03);
+    snaps.push({ ht: m.ht, car: m.car, cats: m.cats, npcs: m.npcs, cones: m.cones });
+    while (snaps.length > 2 && snaps[1].ht < m.ht - 1500) snaps.shift();
+  }
   if (first || !shown) shown = cloneView(m);
 }
 
@@ -1077,32 +1102,42 @@ function lerpAngle(a, b, t) { const d = Math.atan2(Math.sin(b - a), Math.cos(b -
 function cloneView(v) {
   return { car: v.car.slice(), cats: v.cats.map((x) => x.slice()), npcs: v.npcs.map((x) => x.slice()), cones: v.cones.map((x) => x.slice()) };
 }
-function smoothList(cur, next, k, angleIdx) {
-  if (cur.length !== next.length) return next.map((x) => x.slice());
-  for (let i = 0; i < next.length; i++) {
-    const a = cur[i], b = next[i];
-    if (Math.hypot(b[0] - a[0], b[1] - a[1]) > 200) { cur[i] = b.slice(); continue; }
-    for (let j = 2; j < b.length; j++) a[j] = b[j];
-    a[0] = lerp(a[0], b[0], k); a[1] = lerp(a[1], b[1], k);
-    if (angleIdx) a[angleIdx] = lerpAngle(a[angleIdx], b[angleIdx], k);
-  }
-  return cur;
+function lerpItem(a, b, t, angleIdx) {
+  if (!a || Math.hypot(b[0] - a[0], b[1] - a[1]) > 200) return b.slice(); // ワープはそのまま
+  const o = b.slice();
+  o[0] = lerp(a[0], b[0], t); o[1] = lerp(a[1], b[1], t);
+  if (angleIdx) o[angleIdx] = lerpAngle(a[angleIdx], b[angleIdx], t);
+  return o;
+}
+function lerpList(A, Bl, t, angleIdx) {
+  if (!A || A.length !== Bl.length) return Bl.map((x) => x.slice());
+  return Bl.map((b, i) => lerpItem(A[i], b, t, angleIdx));
 }
 function smoothView(v, dt) {
-  if (!shown || mode !== 'guest') { shown = { car: v.car, cats: v.cats, npcs: v.npcs, cones: v.cones }; return; }
-  const k = 1 - Math.pow(0.0005, dt); // 約60fpsで0.12くらい
-  const c = shown.car, tc = v.car;
-  if (Math.hypot(tc[0] - c[0], tc[1] - c[1]) > 300) shown.car = tc.slice();
-  else {
-    // 届いた位置から、速度ぶん少し先を予想して追いかける（毎秒10回の受信でも遅れて見えないように）
-    const age = Math.min(0.12, (performance.now() - (v._t || 0)) / 1000);
-    const px = tc[0] + (tc[6] || 0) * age, py = tc[1] + (tc[7] || 0) * age;
-    c[0] = lerp(c[0], px, k * 2.6); c[1] = lerp(c[1], py, k * 2.6);
-    c[2] = lerpAngle(c[2], tc[2], k * 2.2); c[3] = tc[3]; c[4] = tc[4]; c[5] = tc[5];
+  if (mode !== 'guest' || snaps.length === 0 || clockOff === null) {
+    shown = { car: v.car, cats: v.cats, npcs: v.npcs, cones: v.cones }; return;
   }
-  shown.cats = smoothList(shown.cats, v.cats, k * 2, 0);
-  shown.npcs = smoothList(shown.npcs, v.npcs, k * 2, 2);
-  shown.cones = smoothList(shown.cones, v.cones, k * 2, 0);
+  const target = performance.now() - clockOff - playDelay; // 表示するホスト側の時刻
+  let a = null, b = null;
+  for (let i = snaps.length - 1; i >= 0; i--) {
+    if (snaps[i].ht <= target) { a = snaps[i]; b = snaps[i + 1] || null; break; }
+  }
+  if (!a) { const s0 = snaps[0]; shown = cloneView(s0); return; }   // まだ十分たまっていない
+  if (!b) {
+    // 次の状態がまだ来ていない：最新の状態から速度で少しだけ先読み（最大0.15秒）
+    const ext = Math.min(0.15, (target - a.ht) / 1000);
+    const car = a.car.slice();
+    car[0] += (car[6] || 0) * ext; car[1] += (car[7] || 0) * ext;
+    shown = { car, cats: a.cats, npcs: a.npcs, cones: a.cones };
+    return;
+  }
+  const t = clamp((target - a.ht) / Math.max(1, b.ht - a.ht), 0, 1);
+  shown = {
+    car: lerpItem(a.car, b.car, t, 2),
+    cats: lerpList(a.cats, b.cats, t, 0),
+    npcs: lerpList(a.npcs, b.npcs, t, 2),
+    cones: lerpList(a.cones, b.cones, t, 0),
+  };
 }
 
 const BLD_COLORS = ['#e07a5f', '#81b29a', '#f2cc8f', '#6d8bc7', '#c96bb0', '#d9a066', '#7fb7be'];
@@ -1584,6 +1619,7 @@ function frame(now) {
       if (!resultDone && (sendAcc >= interval || (sim.phase === 'result' && !sentResult))) {
         sendAcc = 0;
         view.ev = outbox; outbox = [];
+        view.ht = Math.round(performance.now());
         send(view);
         sentResult = sim.phase === 'result';
       }

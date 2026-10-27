@@ -66,12 +66,21 @@ server.on("upgrade", (req, sock) => {
       buf = buf.subarray(fr.len);
       if (fr.op === 8) return close();
       if (fr.op === 1 && fr.data.toString() === "ping") { sendText(sock, "pong"); continue; }
-      if (fr.op === 1) for (const o of room) if (o !== me) sendText(o.sock, fr.data.toString());
+      if (fr.op === 1) for (const o of room) if (o !== me) relay(o, fr.data.toString());
     }
   });
   sock.on("close", close);
   sock.on("error", close);
 });
+
+// JITTER=ミリ秒 を付けて起動すると、中継に0〜その値のばらつく遅延を入れる（順番は保つ）
+const JITTER = +process.env.JITTER || 0;
+function relay(o, text) {
+  if (!JITTER) return sendText(o.sock, text);
+  const at = Math.max(o.lastAt || 0, Date.now() + Math.random() * JITTER);
+  o.lastAt = at;
+  setTimeout(() => sendText(o.sock, text), at - Date.now());
+}
 
 function parseFrame(b) {
   if (b.length < 2) return null;
