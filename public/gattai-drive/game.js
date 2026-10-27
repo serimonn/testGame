@@ -1232,7 +1232,7 @@ function roundRect(x, y, w, h, r) {
    メインループ
    ========================================================= */
 let last = performance.now(), acc = 0, sendAcc = 0;
-let lastSent = '';
+let lastSent = '', lastSentS = 0, lastSentP = 0, lastSendT = 0;
 
 function frame(now) {
   const dt = Math.min(0.1, (now - last) / 1000);
@@ -1278,10 +1278,19 @@ function frame(now) {
 
   if (mode === 'guest' && view) {
     // 自分の担当の入力だけ送る（変化したときだけ）
+    // ハンドルは0.05刻みにして、送るのは最大で毎秒20回まで。
+    // ペダルの踏み替えとハンドルを離した瞬間は待たずにすぐ送る
     const role = myRole(view);
-    const msg = { t: 'in', s: role === 'steer' ? +input.steer.toFixed(2) : 0, p: role === 'pedal' ? input.pedal : 0 };
+    const s = role === 'steer' ? Math.round(input.steer * 20) / 20 : 0;
+    const msg = { t: 'in', s, p: role === 'pedal' ? input.pedal : 0 };
     const key = msg.s + '|' + msg.p;
-    if (key !== lastSent) { lastSent = key; send(msg); }
+    if (key !== lastSent) {
+      const urgent = msg.p !== lastSentP || (s === 0 && lastSentS !== 0);
+      if (urgent || now - lastSendT >= 50) {
+        lastSent = key; lastSentS = msg.s; lastSentP = msg.p; lastSendT = now;
+        send(msg);
+      }
+    }
   }
 
   if (view && $('#game').classList.contains('active')) {
