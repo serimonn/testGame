@@ -58,7 +58,7 @@ const leftOf = (dx, dy) => ({ x: dy * LANE, y: -dx * LANE });
 // ---------- おばあちゃん ----------
 const GRANNY_FREE = [
   'アクセル踏みなさい！', 'ブレーキ！ブレーキ！', '昔はここ全部田んぼだったのよ',
-  '牛には優しくね', 'あら、いい天気', 'ピザ冷めちゃうわよ', 'もっと飛ばしなさい',
+  '猫には優しくね', 'あら、いい天気', 'ピザ冷めちゃうわよ', 'もっと飛ばしなさい',
   '安全運転でね', 'お腹すいたわ…一切れいい？', 'あんたたち仲良くしなさいよ',
   'ハンドルは心で切るのよ', 'この道、通ったことある気がするわ',
 ];
@@ -70,18 +70,21 @@ function newSim() {
   const S = {
     phase: 'count', count: 3.4, t: 0,
     car: { x: START.x, y: START.y, a: -Math.PI / 2, vx: 0, vy: 0, air: 0, spin: 0 },
-    cows: [],
+    cats: [],
     roles: Math.random() < 0.5 ? ['steer', 'pedal'] : ['pedal', 'steer'],
     dest: null, score: 0, deliv: 0, heat: 100, cond: 100,
     granny: '', grannyUntil: 0, nextGranny: 4, nextShuffle: rand(16, 22), warn: false,
-    stats: { flips: 0, brakes: 0, crash: 0, cow: 0, cone: 0, oil: 0 },
+    stats: { flips: 0, brakes: 0, crash: 0, cat: 0, cone: 0, oil: 0 },
     crashCd: 0, lastSteerSign: 0, prevPedal: 0,
     events: [],
   };
   S.dest = randomRoadPoint(START, 900);
-  for (let i = 0; i < 16; i++) {
+  for (let i = 0; i < 7; i++) {
     const p = randomRoadPoint(START, 350);
-    S.cows.push({ x: p.x, y: p.y, a: Math.floor(rand(0, 4)) * Math.PI / 2, turn: rand(1, 4), fly: 0, vx: 0, vy: 0 });
+    S.cats.push({
+      x: p.x + rand(-40, 40), y: p.y + rand(-40, 40), a: Math.floor(rand(0, 4)) * Math.PI / 2,
+      mode: 'sit', timer: rand(0.5, 3), fly: 0, vx: 0, vy: 0, color: i % CAT_COLORS.length,
+    });
   }
   placeObstacles(S);
   return S;
@@ -299,7 +302,7 @@ function stepSim(S, dt, steer, pedal) {
   let vl = -car.vx * fy + car.vy * fx;     // 横すべり速度
 
   if (car.air > 0) {
-    // 牛に跳ね飛ばされて空中
+    // 空中（ジャンプ中）
     car.air -= dt;
     car.a += car.spin * dt;
     car.vx *= 0.995; car.vy *= 0.995;
@@ -328,12 +331,18 @@ function stepSim(S, dt, steer, pedal) {
       }
     }
     const oily = (car.oil || 0) > 0;
-    vf *= 1 - (onGrass ? 2.4 : oily ? 0.1 : 0.55) * dt;
+    const spinning = (car.spinT || 0) > 0;  // 猫に驚いてスピン中
+    vf *= 1 - (onGrass ? 2.4 : oily || spinning ? 0.1 : 0.55) * dt;
     vf = clamp(vf, -200, onGrass ? 260 : 640);
-    vl *= Math.max(0, 1 - (oily ? 0.4 : 7) * dt);
+    vl *= Math.max(0, 1 - (oily ? 0.4 : spinning ? 1.2 : 7) * dt);
 
     const turnScale = clamp(vf / 150, -1, 1); // 低速での回転半径 ≒ 55px
-    car.a += steer * (oily ? 4.2 : 2.7) * turnScale * dt + (oily ? Math.sin(S.t * 9) * 0.9 * dt : 0);
+    if (spinning) {
+      car.a += car.spinDir * 10 * (car.spinT / 0.9) * dt;
+      car.spinT -= dt;
+    } else {
+      car.a += steer * (oily ? 4.2 : 2.7) * turnScale * dt + (oily ? Math.sin(S.t * 9) * 0.9 * dt : 0);
+    }
 
     const nfx = Math.cos(car.a), nfy = Math.sin(car.a);
     car.vx = nfx * vf - nfy * vl;
@@ -353,31 +362,45 @@ function stepSim(S, dt, steer, pedal) {
 
   stepObstacles(S, dt);
 
-  // --- 牛 ---
-  for (const c of S.cows) {
+  // --- 猫 ---
+  // 座ってくつろぐ → ふらっと歩く → ときどき道を全力で横切る
+  for (const c of S.cats) {
     if (c.fly > 0) {
-      c.fly -= dt; c.x += c.vx * dt; c.y += c.vy * dt; c.a += 12 * dt;
-      if (c.fly <= 0) { const p = randomRoadPoint(car, 500); c.x = p.x; c.y = p.y; c.a = 0; }
+      // 車をよけて大ジャンプ中
+      c.fly -= dt; c.x += c.vx * dt; c.y += c.vy * dt;
+      if (c.fly <= 0) {
+        if (tileOfPx(c.x, c.y) !== 0) { const r = nearestRoad(c.x, c.y); c.x = r.x + rand(-40, 40); c.y = r.y + rand(-40, 40); }
+        c.mode = 'sit'; c.timer = rand(1.5, 3);
+      }
       continue;
     }
-    c.turn -= dt;
-    if (c.turn <= 0) { c.a = Math.floor(rand(0, 4)) * Math.PI / 2; c.turn = rand(1.5, 4); }
-    const nx = c.x + Math.cos(c.a) * 38 * dt, ny = c.y + Math.sin(c.a) * 38 * dt;
-    if (tileOfPx(nx, ny) === 0) { c.x = nx; c.y = ny; } else { c.a += Math.PI; }
+    c.timer -= dt;
+    if (c.timer <= 0) {
+      const r = Math.random();
+      c.mode = r < 0.45 ? 'sit' : r < 0.85 ? 'walk' : 'dash';
+      c.a = Math.floor(rand(0, 4)) * Math.PI / 2;
+      c.timer = c.mode === 'sit' ? rand(2, 5) : c.mode === 'walk' ? rand(1.5, 3.5) : rand(0.8, 1.4);
+    }
+    if (c.mode !== 'sit') {
+      const v = c.mode === 'dash' ? 170 : 34;
+      const nx = c.x + Math.cos(c.a) * v * dt, ny = c.y + Math.sin(c.a) * v * dt;
+      if (tileOfPx(nx, ny) === 0) { c.x = nx; c.y = ny; } else { c.a += Math.PI; }
+    }
 
     if (car.air <= 0) {
       const d = Math.hypot(c.x - car.x, c.y - car.y);
-      if (d < 36) {
+      if (d < 34) {
         const sp = Math.hypot(car.vx, car.vy);
+        // 猫は必ず飛びのく（無事）。車は驚いてスピン
+        const ux = (c.x - car.x) / (d || 1), uy = (c.y - car.y) / (d || 1);
+        c.fly = 0.6; c.vx = ux * 260 + rand(-60, 60); c.vy = uy * 260 + rand(-60, 60);
+        c.a = Math.atan2(c.vy, c.vx);
         if (sp > 140) {
-          car.air = 1.3; car.spin = (Math.random() < 0.5 ? -1 : 1) * rand(8, 12);
-          c.fly = 1.4; c.vx = car.vx * 1.3 + rand(-150, 150); c.vy = car.vy * 1.3 + rand(-150, 150);
-          S.cond -= 20; S.stats.cow++;
-          emit(S, { k: 'moo', x: c.x, y: c.y });
+          car.spinT = 0.9; car.spinDir = Math.random() < 0.5 ? -1 : 1;
+          S.cond -= 12; S.stats.cat++;
+          emit(S, { k: 'meow', x: c.x, y: c.y });
         } else {
-          // ゆっくりだと牛にどかされる
-          const ux = (car.x - c.x) / (d || 1), uy = (car.y - c.y) / (d || 1);
-          car.x += ux * (36 - d); car.y += uy * (36 - d);
+          emit(S, { k: 'nya', x: c.x, y: c.y });
         }
       }
     }
@@ -425,7 +448,7 @@ function collideBuildings(car) {
 }
 
 function kenkaOf(st) {
-  return Math.min(100, Math.round(st.flips * 0.8 + st.brakes * 3 + st.crash * 3 + st.cow * 6 + (st.cone || 0) * 0.7 + (st.oil || 0) * 2));
+  return Math.min(100, Math.round(st.flips * 0.8 + st.brakes * 3 + st.crash * 3 + (st.cat || 0) * 5 + (st.cone || 0) * 0.7 + (st.oil || 0) * 2));
 }
 function kenkaTitle(k) {
   if (k < 20) return '以心伝心の熟年夫婦';
@@ -517,7 +540,7 @@ function obstacleAhead(S, x, y, fx, fy, range, width) {
     const ahead = ox * fx + oy * fy, side = Math.abs(-ox * fy + oy * fx);
     if (ahead > 0 && ahead < range && side < width + r && ahead < best.d) best = { d: ahead, kind };
   };
-  for (const w of S.cows) if (w.fly <= 0) check(w, 'cow', 18);
+  for (const w of S.cats) if (w.fly <= 0) check(w, 'cat', 14);
   for (const n of S.npcs) check(n, 'car', 24);
   for (const c of S.cones) if (c.fly <= 0 && c.back <= 0) check(c, 'cone', 10);
   return best;
@@ -530,7 +553,7 @@ const CPU_LINES = {
   swap: ['えっ交代？聞いてない', 'はいはい交代ね', 'ちょっと待って心の準備が'],
   deliver: ['ナイス！', 'おれのおかげだね', 'チップもらえるかな', 'いいコンビじゃん'],
   crash: ['今のはそっちのせい', '保険入ってる？', 'ぼくは悪くない'],
-  moo: ['牛ーーーー！', 'ごめん牛…', '飛んでる！飛んでる！'],
+  meow: ['猫ーーーー！', '猫ちゃん無事！？', '回ってる！回ってる！'],
   carhit: ['あっすみません！', '保険屋さん呼んで', '向こうが悪い'],
   oil: ['ツルッツル！', 'うわ滑る滑る', 'なんでオイルが…'],
   cone: ['工事中って書いてたよ', 'コーン代、給料から引かれるかな'],
@@ -547,7 +570,7 @@ function cpuTalk(S, text, dur = 2.4) {
 function cpuReact(S, ev) {
   const L = CPU_LINES[ev.k];
   if (!L) return;
-  const chance = { swap: 0.7, deliver: 0.5, crash: 0.35, moo: 0.8, carhit: 0.7, oil: 0.6, cone: 0.25 }[ev.k] || 0;
+  const chance = { swap: 0.7, deliver: 0.5, crash: 0.35, meow: 0.8, carhit: 0.7, oil: 0.6, cone: 0.25 }[ev.k] || 0;
   if (Math.random() < chance) cpuTalk(S, pick(L));
 }
 
@@ -628,7 +651,7 @@ function cpuControl(S, cpu, role, dt) {
   if (wall < 60 && Math.abs(diff) > 0.7 && sp < 80) { cpu.reverse = 0.6; return -1; }
   // 曲がるには少し前に進む必要がある
   if (Math.abs(diff) > 0.7 && wall > 60) target = Math.max(target, 70);
-  // 前方の牛・車・コーン
+  // 前方の猫・車・コーン
   const ob = obstacleAhead(S, c.x, c.y, fx, fy, 190, 22);
   if (ob.kind === 'cone') target = Math.min(target, 130);
   else if (ob.kind) target = Math.min(target, Math.max(0, ob.d - 55) * 1.5);
@@ -651,7 +674,8 @@ function pack(S) {
   return {
     t: 's', p: S.phase, n: Math.ceil(S.count), tm: Math.max(0, Math.ceil(STAGE_TIME - S.t)),
     car: [Math.round(c.x), Math.round(c.y), +c.a.toFixed(2), +c.air.toFixed(2), Math.round(Math.hypot(c.vx, c.vy)), (c.oil || 0) > 0 ? 1 : 0],
-    cows: S.cows.map((w) => [Math.round(w.x), Math.round(w.y), Math.cos(w.a) < -0.1 ? -1 : 1, w.fly > 0 ? 1 : 0]),
+    cats: S.cats.map((w) => [Math.round(w.x), Math.round(w.y), Math.cos(w.a) < -0.1 ? -1 : 1,
+      w.fly > 0 ? 2 : w.mode === 'sit' ? 1 : 0, w.color, +Math.max(0, w.fly).toFixed(2)]),
     npcs: S.npcs.map((n) => [Math.round(n.x), Math.round(n.y), +n.a.toFixed(2), n.color]),
     cones: S.cones.map((k) => [Math.round(k.x), Math.round(k.y), k.fly > 0 ? 1 : 0]),
     oils: S.oils.map((o) => [Math.round(o.x), Math.round(o.y), Math.round(o.r), o.seed]),
@@ -670,7 +694,7 @@ const net = { ws: null, slot: -1, peer: false, code: '' };
 let mode = 'none';  // 'host' | 'guest' | 'solo'
 let sim = null;
 let view = null;    // 描画に使う最新の状態
-let shown = null;   // 補間後の表示用（車・牛）
+let shown = null;   // 補間後の表示用（車・猫など）
 let remote = { s: 0, p: 0 };
 let outbox = [];
 
@@ -890,7 +914,8 @@ function buzz(ms) { try { navigator.vibrate && navigator.vibrate(ms); } catch {}
 
 function handleEvent(ev) {
   switch (ev.k) {
-    case 'moo': floatText(ev.x, ev.y, 'モ〜〜〜！', '#fff6e0'); fx.shake = 14; buzz([60, 40, 120]); break;
+    case 'meow': floatText(ev.x, ev.y, 'ニャーーッ！！', '#fff6e0'); fx.shake = 12; buzz([60, 40, 120]); break;
+    case 'nya': floatText(ev.x, ev.y, 'ニャ', '#fff6e0'); break;
     case 'crash': floatText(ev.x, ev.y, 'ガシャン！', '#ff4b3e'); fx.shake = 10; buzz(80); break;
     case 'carhit': floatText(ev.x, ev.y, 'ドガシャーン！', '#ff4b3e'); fx.shake = 16; buzz([80, 30, 80]); break;
     case 'cone': floatText(ev.x, ev.y, 'カーン！', '#ff7a1a'); fx.shake = 4; buzz(25); break;
@@ -975,7 +1000,7 @@ function updateUI(v) {
     $('#rTitle').textContent = kenkaTitle(k);
     $('#rStats').innerHTML =
       `<li>急ハンドル ${v.st.flips}回</li><li>急ブレーキ ${v.st.brakes}回</li>` +
-      `<li>激突 ${v.st.crash}回</li><li>牛 ${v.st.cow}頭</li>` +
+      `<li>激突 ${v.st.crash}回</li><li>猫 ${v.st.cat || 0}匹</li>` +
       `<li>コーン ${v.st.cone || 0}本</li><li>オイル ${v.st.oil || 0}回</li>`;
     $('#rKenkaBar').style.width = '0';
     $('#result').classList.add('show');
@@ -988,7 +1013,7 @@ const lerp = (a, b, t) => a + (b - a) * t;
 function lerpAngle(a, b, t) { const d = Math.atan2(Math.sin(b - a), Math.cos(b - a)); return a + d * t; }
 
 function cloneView(v) {
-  return { car: v.car.slice(), cows: v.cows.map((x) => x.slice()), npcs: v.npcs.map((x) => x.slice()), cones: v.cones.map((x) => x.slice()) };
+  return { car: v.car.slice(), cats: v.cats.map((x) => x.slice()), npcs: v.npcs.map((x) => x.slice()), cones: v.cones.map((x) => x.slice()) };
 }
 function smoothList(cur, next, k, angleIdx) {
   if (cur.length !== next.length) return next.map((x) => x.slice());
@@ -1002,7 +1027,7 @@ function smoothList(cur, next, k, angleIdx) {
   return cur;
 }
 function smoothView(v, dt) {
-  if (!shown || mode !== 'guest') { shown = { car: v.car, cows: v.cows, npcs: v.npcs, cones: v.cones }; return; }
+  if (!shown || mode !== 'guest') { shown = { car: v.car, cats: v.cats, npcs: v.npcs, cones: v.cones }; return; }
   const k = 1 - Math.pow(0.0005, dt); // 約60fpsで0.12くらい
   const c = shown.car, tc = v.car;
   if (Math.hypot(tc[0] - c[0], tc[1] - c[1]) > 300) shown.car = tc.slice();
@@ -1010,7 +1035,7 @@ function smoothView(v, dt) {
     c[0] = lerp(c[0], tc[0], k * 2.2); c[1] = lerp(c[1], tc[1], k * 2.2);
     c[2] = lerpAngle(c[2], tc[2], k * 2.2); c[3] = tc[3]; c[4] = tc[4]; c[5] = tc[5];
   }
-  shown.cows = smoothList(shown.cows, v.cows, k * 2, 0);
+  shown.cats = smoothList(shown.cats, v.cats, k * 2, 0);
   shown.npcs = smoothList(shown.npcs, v.npcs, k * 2, 2);
   shown.cones = smoothList(shown.cones, v.cones, k * 2, 0);
 }
@@ -1131,15 +1156,8 @@ function render(v, dt) {
   // 他の車
   for (const n of shown.npcs) drawCar([n[0], n[1], n[2], 0], NPC_COLORS[n[3]], '#fff6e0', false);
 
-  // 牛
-  ctx.font = '42px serif';
-  for (const c of shown.cows) {
-    ctx.save(); ctx.translate(c[0], c[1]);
-    if (c[3]) { ctx.rotate(animT * 14); ctx.scale(1.4, 1.4); }
-    ctx.scale(-c[2], 1); // 絵文字の牛は左向きなので反転
-    ctx.fillText('🐄', 0, 0);
-    ctx.restore();
-  }
+  // 猫
+  for (const c of shown.cats) drawCat(c);
 
   // 車（オイルの上ではスリップ跡）
   if (car[5]) {
@@ -1185,6 +1203,68 @@ function render(v, dt) {
     ctx.beginPath(); ctx.moveTo(18, 0); ctx.lineTo(-12, -14); ctx.lineTo(-6, 0); ctx.lineTo(-12, 14); ctx.closePath();
     ctx.fill(); ctx.stroke();
     ctx.restore();
+  }
+}
+
+const CAT_COLORS = [
+  { body: '#f39a3d', mark: '#c4621c' }, // 茶トラ
+  { body: '#2a2730', mark: '#2a2730' }, // 黒猫
+  { body: '#fff6e0', mark: '#fff6e0' }, // 白猫
+  { body: '#fff6e0', mark: '#e0822f' }, // 三毛
+  { body: '#9a9aa6', mark: '#6c6c78' }, // サバトラ
+];
+function drawCat(c) {
+  const [x, y, face, state, color, fly] = c;
+  const col = CAT_COLORS[color] || CAT_COLORS[0];
+  const lift = state === 2 ? Math.sin((1 - fly / 0.6) * Math.PI) : 0;
+  const walk = state === 0 ? Math.sin(animT * 14 + x) * 3 : 0;
+  ctx.save();
+  ctx.translate(x, y);
+  // 影
+  ctx.fillStyle = 'rgba(0,0,0,.35)';
+  ctx.beginPath(); ctx.ellipse(3, 14, 18 - lift * 6, 6, 0, 0, Math.PI * 2); ctx.fill();
+  ctx.translate(0, -lift * 40);
+  ctx.scale(face * 1.25, 1.25);
+  ctx.lineWidth = 2.6; ctx.strokeStyle = '#17151a'; ctx.lineJoin = 'round'; ctx.lineCap = 'round';
+  const outline = col.body === '#2a2730' ? '#fff6e0' : '#17151a'; // 黒猫は白フチで目立たせる
+  ctx.strokeStyle = outline;
+  if (state === 1) {
+    // おすわり
+    ctx.fillStyle = col.body;
+    ctx.beginPath(); ctx.moveTo(-8, 9); ctx.quadraticCurveTo(-20, 10, -16, 0); ctx.stroke(); // しっぽ
+    ctx.beginPath(); ctx.ellipse(-2, 2, 10, 9, 0, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+    ctx.beginPath(); ctx.arc(4, -8, 8, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+    ears(4, -8, col);
+    ctx.fillStyle = outline; ctx.fillRect(6, -10, 2, 3);
+  } else {
+    // 歩く・走る・ジャンプ
+    ctx.fillStyle = col.body;
+    ctx.beginPath(); ctx.moveTo(-13, -1); ctx.quadraticCurveTo(-22, -6 - (state === 2 ? 6 : 0), -19, -15); ctx.lineWidth = 5; ctx.stroke();
+    ctx.lineWidth = 3; ctx.strokeStyle = col.body; ctx.stroke(); ctx.strokeStyle = outline; ctx.lineWidth = 2.6; // しっぽ
+    for (const [lx, ph] of [[-9, 0], [-4, Math.PI], [5, Math.PI], [9, 0]]) {
+      const o = state === 2 ? 3 : Math.sin(animT * 14 + x + ph) * 3;
+      ctx.beginPath(); ctx.moveTo(lx, 4); ctx.lineTo(lx + o, 11); ctx.lineWidth = 4.5; ctx.stroke();
+    }
+    ctx.lineWidth = 2.6;
+    ctx.beginPath(); ctx.ellipse(-1, 1 + walk * 0.2, 14, 7.5, 0, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+    if (col.mark !== col.body) {
+      ctx.fillStyle = col.mark;
+      ctx.beginPath(); ctx.ellipse(-5, -2, 5, 3, 0.3, 0, Math.PI * 2); ctx.fill();
+      ctx.beginPath(); ctx.ellipse(3, -1, 3.5, 2.5, -0.3, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = col.body;
+    }
+    ctx.beginPath(); ctx.arc(13, -5, 7.5, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+    ears(13, -5, col);
+    ctx.fillStyle = outline; ctx.fillRect(15, -7, 2, 3);
+  }
+  ctx.restore();
+
+  function ears(hx, hy, col) {
+    ctx.fillStyle = col.body;
+    for (const ex of [-4, 3]) {
+      ctx.beginPath(); ctx.moveTo(hx + ex - 2.5, hy - 5); ctx.lineTo(hx + ex + 0.5, hy - 12); ctx.lineTo(hx + ex + 3.5, hy - 5);
+      ctx.closePath(); ctx.fill(); ctx.stroke();
+    }
   }
 }
 
