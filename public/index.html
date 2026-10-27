@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>testGame</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Dela+Gothic+One&family=M+PLUS+Rounded+1c:wght@500;800&display=swap" rel="stylesheet">
+<style>
+  :root { --bg: #17151a; --fg: #fff6e0; --card: #2b2b30; --yellow: #ffd23f; --red: #ff4b3e; }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; min-height: 100vh; background: var(--bg); color: var(--fg);
+    font-family: "M PLUS Rounded 1c", "Hiragino Maru Gothic ProN", sans-serif;
+    padding: max(32px, env(safe-area-inset-top)) max(20px, env(safe-area-inset-right)) 40px max(20px, env(safe-area-inset-left));
+  }
+  main { max-width: 560px; margin: 0 auto; display: flex; flex-direction: column; gap: 20px; }
+  h1 { margin: 0; font-family: "Dela Gothic One", sans-serif; font-weight: 400; font-size: 40px; }
+  p { margin: 0; opacity: .8; }
+  ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 14px; }
+  a.game {
+    display: flex; gap: 16px; align-items: center; text-decoration: none; color: var(--bg);
+    background: var(--yellow); border: 3px solid #000; border-radius: 18px; padding: 16px;
+    box-shadow: 0 6px 0 #000; transition: transform .05s, box-shadow .05s;
+  }
+  a.game:active { transform: translateY(4px); box-shadow: 0 2px 0 #000; }
+  a.game:focus-visible { outline: 3px solid var(--red); outline-offset: 3px; }
+  .icon { font-size: 44px; line-height: 1; }
+  .name { font-family: "Dela Gothic One", sans-serif; font-size: 24px; }
+  .desc { font-size: 13px; font-weight: 800; }
+  .tags { font-size: 11px; font-weight: 800; margin-top: 4px; }
+  .tags span { background: var(--bg); color: var(--yellow); border-radius: 6px; padding: 1px 6px; margin-right: 4px; }
+</style>
+</head>
+<body>
+<main>
+  <h1>testGame</h1>
+  <p>遊ぶゲームを選んでください。</p>
+  <ul>
+    <li>
+      <a class="game" href="/gattai-drive/">
+        <span class="icon">🚗</span>
+        <span>
+          <span class="name">合体ドライブ</span><br>
+          <span class="desc">1台の車を2台のスマホで。片方はハンドル、片方はペダルだけ。</span>
+          <span class="tags"><br><span>2人オンライン</span><span>ひとり（CPU）</span></span>
+        </span>
+      </a>
+    </li>
+  </ul>
+</main>
+</body>
+</html>

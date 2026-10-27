@@ -1,0 +1,17 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  // Cloudflare 側の Worker 名と一致させること（Workers Builds はここが違うとビルドに失敗する）
+  "name": "testgame",
+  "main": "src/index.js",
+  "compatibility_date": "2025-09-01",
+  "assets": {
+    "directory": "./public",
+    "binding": "ASSETS",
+    "html_handling": "auto-trailing-slash",
+    "run_worker_first": ["/gattai-drive/ws/*"]
+  },
+  "durable_objects": {
+    "bindings": [{ "name": "GATTAI_ROOM", "class_name": "GattaiRoom" }]
+  },
+  "migrations": [{ "tag": "v1", "new_sqlite_classes": ["GattaiRoom"] }]
+}

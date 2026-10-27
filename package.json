@@ -1,0 +1,15 @@
+{
+  "name": "testgame",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "wrangler dev --ip 0.0.0.0",
+    "mock": "node tools/mock-server.mjs",
+    "deploy": "wrangler deploy",
+    "build:artifact": "node tools/build-artifact.mjs"
+  },
+  "devDependencies": {
+    "wrangler": "^4.0.0"
+  }
+}

@@ -1,0 +1,114 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<meta name="theme-color" content="#ffd23f">
+<title>合体ドライブ</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Dela+Gothic+One&family=M+PLUS+Rounded+1c:wght@500;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<!-- ロビー -->
+<section id="lobby" class="screen active">
+  <div class="stripes"></div>
+  <div class="lobby-inner">
+    <p class="kicker">1台の車を、2台のスマホで。</p>
+    <h1 class="logo">合体<br>ドライブ</h1>
+    <p class="lead">片方は<b>ハンドルだけ</b>。もう片方は<b>アクセルとブレーキだけ</b>。<br>ピザを熱いうちに届けろ。</p>
+    <button id="btnCreate" class="btn big yellow">部屋をつくる</button>
+    <div class="join">
+      <input id="codeInput" inputmode="numeric" pattern="[0-9]*" maxlength="4" placeholder="部屋コード">
+      <button id="btnJoin" class="btn">参加</button>
+    </div>
+    <button id="btnCpu" class="btn">ひとりで遊ぶ（CPUと合体）</button>
+    <button id="btnSolo" class="link">全部ひとりで操作する（練習）</button>
+    <p id="lobbyMsg" class="msg"></p>
+    <p id="offlineNote" class="note" hidden>あなたはハンドルかペダルのどちらかだけ担当。もう片方はCPUがやります。PCなら矢印キーでも操作できます。<br>2台のスマホで遊ぶオンライン対戦は、Cloudflareに公開した版で。</p>
+  </div>
+</section>
+
+<!-- 待機 -->
+<section id="waiting" class="screen">
+  <div class="stripes"></div>
+  <div class="lobby-inner">
+    <p class="kicker">部屋コード</p>
+    <div id="roomCode" class="room-code">----</div>
+    <p class="lead" id="waitText">相方を待っています…<br>コードかリンクを送ってください</p>
+    <button id="btnShare" class="btn big yellow">招待リンクを送る</button>
+    <button id="btnLeave" class="link">やめる</button>
+  </div>
+</section>
+
+<!-- ゲーム -->
+<section id="game" class="screen">
+  <div id="hud">
+    <div class="hud-cell"><span class="lbl">のこり</span><span id="hTime" class="val">90</span></div>
+    <div class="hud-cell"><span class="lbl">配達</span><span id="hDeliv" class="val">0</span></div>
+    <div class="hud-cell"><span class="lbl">スコア</span><span id="hScore" class="val">0</span></div>
+    <div class="bars">
+      <div class="bar"><span>🔥</span><i><b id="hHeat"></b></i></div>
+      <div class="bar"><span>🍕</span><i><b id="hCond"></b></i></div>
+    </div>
+  </div>
+
+  <div id="stage">
+    <canvas id="cv"></canvas>
+    <div id="granny" class="granny"><span class="face">👵</span><span id="grannyText"></span></div>
+    <div id="warn" class="warn">⚠ まもなく担当交代！</div>
+    <div id="count" class="count"></div>
+    <div id="flash" class="flash"></div>
+  </div>
+
+  <div id="controls">
+    <div id="roleTag" class="role-tag">あなた：<b id="roleName">-</b> <span id="partnerTag"></span></div>
+    <div class="pads">
+      <div id="steerPad" class="pad steer-pad">
+        <svg id="wheel" viewBox="0 0 200 200" aria-hidden="true">
+          <circle cx="100" cy="100" r="86" fill="none" stroke="currentColor" stroke-width="22"/>
+          <circle cx="100" cy="100" r="22" fill="currentColor"/>
+          <rect x="18" y="92" width="164" height="16" rx="8" fill="currentColor"/>
+          <rect x="92" y="100" width="16" height="86" rx="8" fill="currentColor"/>
+          <rect x="88" y="6" width="24" height="18" rx="4" fill="#ff4b3e"/>
+        </svg>
+        <p class="hint">左右にドラッグ</p>
+      </div>
+      <div id="pedalPad" class="pad pedal-pad">
+        <button id="brake" class="pedal brake">ブレーキ<small>長押しでバック</small></button>
+        <button id="gas" class="pedal gas">アクセル</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- リザルト -->
+  <div id="result" class="overlay">
+    <div class="card">
+      <p class="kicker">本日の営業終了</p>
+      <div class="res-row"><span>配達数</span><b id="rDeliv">0</b></div>
+      <div class="res-row"><span>スコア</span><b id="rScore">0</b></div>
+      <div class="kenka">
+        <p class="kenka-lbl">ふたりの喧嘩度</p>
+        <div class="kenka-bar"><b id="rKenkaBar"></b></div>
+        <p id="rTitle" class="kenka-title">-</p>
+        <ul id="rStats" class="stats"></ul>
+      </div>
+      <button id="btnAgain" class="btn big yellow">もう一回</button>
+      <button id="btnLobby" class="link">ロビーへ</button>
+    </div>
+  </div>
+
+  <!-- 相方離脱など -->
+  <div id="notice" class="overlay">
+    <div class="card">
+      <p id="noticeText" class="lead"></p>
+      <button id="btnNotice" class="btn big yellow">OK</button>
+    </div>
+  </div>
+</section>
+
+<script src="game.js"></script>
+</body>
+</html>
