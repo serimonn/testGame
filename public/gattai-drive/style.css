@@ -166,6 +166,7 @@ button { font: inherit; color: inherit; }
   width: 100%; max-width: 380px; background: var(--yellow); color: var(--ink);
   border: 3px solid var(--ink); border-radius: 20px; box-shadow: 0 8px 0 var(--ink);
   padding: 20px; display: flex; flex-direction: column; gap: 10px;
+  max-height: 100%; overflow-y: auto;
 }
 .res-row { display: flex; justify-content: space-between; align-items: baseline; font-weight: 800; }
 .res-row b { font-family: var(--font-head); font-weight: 400; font-size: 32px; }
@@ -175,6 +176,26 @@ button { font: inherit; color: inherit; }
 }
 .x-btn svg { width: 18px; height: 18px; flex: none; }
 .x-btn:focus-visible { outline: 3px solid var(--red); outline-offset: 3px; }
+.rank-row { display: flex; align-items: center; gap: 14px; }
+.rank-stamp {
+  --rank: var(--ink);
+  flex: none; width: 84px; height: 84px; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  font-family: var(--font-head); font-size: 52px; line-height: 1; color: var(--cream);
+  background: var(--rank); border: 4px solid var(--ink); box-shadow: 0 5px 0 var(--ink), inset 0 0 0 4px rgba(255,246,224,.55);
+  transform: rotate(-12deg);
+}
+.rank-stamp.pop { animation: stamp .45s cubic-bezier(.2, 1.6, .4, 1) both; }
+@keyframes stamp { from { transform: rotate(-30deg) scale(2.4); opacity: 0; } to { transform: rotate(-12deg) scale(1); opacity: 1; } }
+@media (prefers-reduced-motion: reduce) { .rank-stamp.pop { animation: none; } }
+.rank-stamp[data-rank="S"] { --rank: #e0a100; color: #17151a; font-size: 58px; }
+.rank-stamp[data-rank="A"] { --rank: var(--red); }
+.rank-stamp[data-rank="B"] { --rank: var(--green); }
+.rank-stamp[data-rank="C"] { --rank: #6d8bc7; }
+.rank-stamp[data-rank="D"] { --rank: #77737e; }
+.rank-text { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.rank-lbl { font-size: 12px; font-weight: 800; }
+.rank-text b { font-family: var(--font-head); font-weight: 400; font-size: 24px; line-height: 1.2; }
 .kenka { background: var(--cream); border: 3px solid var(--ink); border-radius: 14px; padding: 12px; }
 .kenka-lbl { margin: 0 0 6px; font-weight: 800; font-size: 13px; }
 .kenka-bar { height: 16px; border: 2px solid var(--ink); border-radius: 8px; overflow: hidden; background: #fff; }

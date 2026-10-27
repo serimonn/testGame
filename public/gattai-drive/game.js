@@ -418,6 +418,16 @@ function collideBuildings(car) {
   return hit;
 }
 
+// 点数のランク（CPU同士で測った分布から：ミスなしCPUの上位がS）
+const RANKS = [
+  { r: 'S', min: 700, name: '伝説の配達コンビ' },
+  { r: 'A', min: 500, name: '敏腕ドライバー' },
+  { r: 'B', min: 300, name: '一人前の配達員' },
+  { r: 'C', min: 150, name: '見習い配達員' },
+  { r: 'D', min: -Infinity, name: 'クビ寸前' },
+];
+const rankOf = (score) => RANKS.find((x) => score >= x.min);
+
 function kenkaOf(st) {
   return Math.min(100, Math.round(st.flips * 0.8 + st.brakes * 3 + st.crash * 3 + (st.cat || 0) * 5 + (st.cone || 0) * 0.7 + (st.oil || 0) * 2));
 }
@@ -923,6 +933,11 @@ function updateUI(v) {
     const k = kenkaOf(v.st);
     $('#rDeliv').textContent = v.dv;
     $('#rScore').textContent = v.sc;
+    const rk = rankOf(v.sc);
+    const stamp = $('#rRank');
+    stamp.textContent = rk.r; stamp.dataset.rank = rk.r;
+    $('#rRankName').textContent = rk.name;
+    stamp.classList.remove('pop'); void stamp.offsetWidth; stamp.classList.add('pop');
     $('#rTitle').textContent = kenkaTitle(k);
     $('#rStats').innerHTML =
       `<li>急ハンドル ${v.st.flips}回</li><li>急ブレーキ ${v.st.brakes}回</li>` +
@@ -941,7 +956,7 @@ function tweetUrl(v, k) {
   const st = v.st;
   const who = mode === 'solo' ? (soloType === 'cpu' ? 'ポンコツCPUと' : 'ひとりで') : 'ふたりで';
   const lines = [
-    `${who}1台の車を運転して、ピザを${v.dv}枚配達🍕 スコア${v.sc}`,
+    `${who}1台の車を運転して、ピザを${v.dv}枚配達🍕 スコア${v.sc}（${rankOf(v.sc).r}ランク：${rankOf(v.sc).name}）`,
     `喧嘩度${k}%「${kenkaTitle(k)}」`,
   ];
   const extra = [];
