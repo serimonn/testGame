@@ -169,6 +169,12 @@ button { font: inherit; color: inherit; }
 }
 .res-row { display: flex; justify-content: space-between; align-items: baseline; font-weight: 800; }
 .res-row b { font-family: var(--font-head); font-weight: 400; font-size: 32px; }
+.x-btn {
+  display: flex; align-items: center; justify-content: center; gap: 10px;
+  background: #000; color: #fff; border-color: #000; text-decoration: none;
+}
+.x-btn svg { width: 18px; height: 18px; flex: none; }
+.x-btn:focus-visible { outline: 3px solid var(--red); outline-offset: 3px; }
 .kenka { background: var(--cream); border: 3px solid var(--ink); border-radius: 14px; padding: 12px; }
 .kenka-lbl { margin: 0 0 6px; font-weight: 800; font-size: 13px; }
 .kenka-bar { height: 16px; border: 2px solid var(--ink); border-radius: 8px; overflow: hidden; background: #fff; }

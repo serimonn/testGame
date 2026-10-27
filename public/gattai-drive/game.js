@@ -928,11 +928,32 @@ function updateUI(v) {
       `<li>急ハンドル ${v.st.flips}回</li><li>急ブレーキ ${v.st.brakes}回</li>` +
       `<li>激突 ${v.st.crash}回</li><li>猫 ${v.st.cat || 0}匹</li>` +
       `<li>コーン ${v.st.cone || 0}本</li><li>オイル ${v.st.oil || 0}回</li>`;
+    $('#btnTweet').href = tweetUrl(v, k);
     $('#rKenkaBar').style.width = '0';
     $('#result').classList.add('show');
     requestAnimationFrame(() => requestAnimationFrame(() => { $('#rKenkaBar').style.width = k + '%'; }));
   }
   if (v.p !== 'result' && resultShown) { resultShown = false; $('#result').classList.remove('show'); }
+}
+
+// Xの投稿画面を開くリンク（ログインや投稿の確定はX側で行う）
+function tweetUrl(v, k) {
+  const st = v.st;
+  const who = mode === 'solo' ? (soloType === 'cpu' ? 'ポンコツCPUと' : 'ひとりで') : 'ふたりで';
+  const lines = [
+    `${who}1台の車を運転して、ピザを${v.dv}枚配達🍕 スコア${v.sc}`,
+    `喧嘩度${k}%「${kenkaTitle(k)}」`,
+  ];
+  const extra = [];
+  if (st.cat) extra.push(`猫に${st.cat}回ビビり`);
+  if (st.cone) extra.push(`コーンを${st.cone}本なぎ倒し`);
+  if (st.crash) extra.push(`${st.crash}回激突`);
+  if (st.oil) extra.push(`オイルで${st.oil}回滑った`);
+  if (extra.length) lines.push(extra.slice(0, 3).join('、'));
+  const params = new URLSearchParams({ text: lines.join('\n'), hashtags: '合体ドライブ' });
+  // Cloudflare版はゲームのURLを添える（部屋コードは付けない）。Claude内の版はURLなし
+  if (!window.GATTAI_OFFLINE && /^https?:$/.test(location.protocol)) params.set('url', location.origin + location.pathname);
+  return 'https://x.com/intent/post?' + params.toString();
 }
 
 const lerp = (a, b, t) => a + (b - a) * t;
