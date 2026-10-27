@@ -55,14 +55,6 @@ function nearestRoad(x, y) {
 // 進行方向(dx,dy)に対する左車線のずれ（画面はy下向き）
 const leftOf = (dx, dy) => ({ x: dy * LANE, y: -dx * LANE });
 
-// ---------- おばあちゃん ----------
-const GRANNY_FREE = [
-  'アクセル踏みなさい！', 'ブレーキ！ブレーキ！', '昔はここ全部田んぼだったのよ',
-  '猫には優しくね', 'あら、いい天気', 'ピザ冷めちゃうわよ', 'もっと飛ばしなさい',
-  '安全運転でね', 'お腹すいたわ…一切れいい？', 'あんたたち仲良くしなさいよ',
-  'ハンドルは心で切るのよ', 'この道、通ったことある気がするわ',
-];
-
 /* =========================================================
    シミュレーション（ホストだけが動かす）
    ========================================================= */
@@ -73,7 +65,7 @@ function newSim() {
     cats: [],
     roles: Math.random() < 0.5 ? ['steer', 'pedal'] : ['pedal', 'steer'],
     dest: null, score: 0, deliv: 0, heat: 100, cond: 100,
-    granny: '', grannyUntil: 0, nextGranny: 4, nextShuffle: rand(16, 22), warn: false,
+    nextShuffle: rand(16, 22), warn: false,
     stats: { flips: 0, brakes: 0, crash: 0, cat: 0, cone: 0, oil: 0 },
     crashCd: 0, lastSteerSign: 0, prevPedal: 0,
     events: [],
@@ -267,27 +259,6 @@ function stepSim(S, dt, steer, pedal) {
     emit(S, { k: 'swap' });
   }
 
-  // --- おばあちゃん ---
-  if (S.t >= S.nextGranny) {
-    if (Math.random() < 0.5) {
-      // 本当の方向の「逆」を自信満々に言う
-      const want = Math.atan2(S.dest.y - car.y, S.dest.x - car.x);
-      let rel = want - car.a;
-      rel = Math.atan2(Math.sin(rel), Math.cos(rel));
-      const lie = rel > 0 ? '左' : '右';
-      S.grannyLie = rel > 0 ? -1 : 1;
-      S.granny = pick([`そこ${lie}よ！`, `今の${lie}だったでしょ！`, `${lie}！${lie}！${lie}！`, `次の角を${lie}ね、たぶん`]);
-    } else {
-      S.grannyLie = 0;
-      S.granny = pick(GRANNY_FREE);
-    }
-    S.face = '👵';
-    S.grannySeq = (S.grannySeq || 0) + 1;
-    S.grannyUntil = S.t + 3;
-    S.nextGranny = S.t + rand(6, 10);
-  }
-  if (S.t > S.grannyUntil) S.granny = '';
-
   // --- 入力の記録（喧嘩度） ---
   if (Math.abs(steer) > 0.5) {
     const sg = Math.sign(steer);
@@ -461,7 +432,7 @@ function kenkaTitle(k) {
 /* =========================================================
    CPU相方（ひとりで遊ぶモード）
    ・道路の最短経路を知っているが、ポンコツ
-   ・ときどき「うっかり」やらかす／おばあちゃんの嘘を信じる
+   ・ときどき「うっかり」やらかす
    ========================================================= */
 const DIRS = DIRS4;
 // 道路網を粗いマス目で考える：偶数番目=道路、奇数番目=ブロック
@@ -546,32 +517,8 @@ function obstacleAhead(S, x, y, fx, fy, range, width) {
   return best;
 }
 
-const CPU_LINES = {
-  oopsSteer: ['あっハンドル滑った', 'ごめんスマホ見てた', 'くしゃみ出た！', '右ってどっちだっけ'],
-  oopsPedal: ['あ、足つった', 'くしゃみ出た！', '間違えてアクセル踏んだ', '虫！虫いた！'],
-  obey: ['おばあちゃんがそう言うなら…', '了解です！', 'えっ、そっち？'],
-  swap: ['えっ交代？聞いてない', 'はいはい交代ね', 'ちょっと待って心の準備が'],
-  deliver: ['ナイス！', 'おれのおかげだね', 'チップもらえるかな', 'いいコンビじゃん'],
-  crash: ['今のはそっちのせい', '保険入ってる？', 'ぼくは悪くない'],
-  meow: ['猫ーーーー！', '猫ちゃん無事！？', '回ってる！回ってる！'],
-  carhit: ['あっすみません！', '保険屋さん呼んで', '向こうが悪い'],
-  oil: ['ツルッツル！', 'うわ滑る滑る', 'なんでオイルが…'],
-  cone: ['工事中って書いてたよ', 'コーン代、給料から引かれるかな'],
-};
-
 function makeCpu() {
-  return { nextOops: rand(9, 14), oops: 0, oopsVal: 0, obey: 0, obeyDir: 0, seenGranny: 0, stuck: 0, reverse: 0, dodge: 0 };
-}
-
-function cpuTalk(S, text, dur = 2.4) {
-  S.granny = text; S.face = '🤖'; S.grannyUntil = S.t + dur;
-}
-
-function cpuReact(S, ev) {
-  const L = CPU_LINES[ev.k];
-  if (!L) return;
-  const chance = { swap: 0.7, deliver: 0.5, crash: 0.35, meow: 0.8, carhit: 0.7, oil: 0.6, cone: 0.25 }[ev.k] || 0;
-  if (Math.random() < chance) cpuTalk(S, pick(L));
+  return { nextOops: rand(9, 14), oops: 0, oopsVal: 0, stuck: 0, reverse: 0, dodge: 0 };
 }
 
 // CPUが担当する入力値を返す（role: 'steer' | 'pedal'）
@@ -588,7 +535,6 @@ function cpuControl(S, cpu, role, dt) {
     cpu.oops = rand(0.8, 1.4);
     cpu.oopsVal = role === 'steer' ? (Math.random() < 0.5 ? -1 : 1) : (Math.random() < 0.5 ? -1 : 1);
     cpu.nextOops = rand(10, 16);
-    cpuTalk(S, pick(role === 'steer' ? CPU_LINES.oopsSteer : CPU_LINES.oopsPedal));
   }
   if (cpu.oops > 0) { cpu.oops -= dt; return cpu.oopsVal; }
 
@@ -597,15 +543,6 @@ function cpuControl(S, cpu, role, dt) {
   let diff = aim(wp);
 
   if (role === 'steer') {
-    // おばあちゃんの嘘を40%で信じる
-    if (S.grannySeq && S.grannySeq !== cpu.seenGranny) {
-      cpu.seenGranny = S.grannySeq;
-      if (S.grannyLie && Math.random() < 0.4) {
-        cpu.obey = 0.9; cpu.obeyDir = S.grannyLie;
-        setTimeout(() => { if (sim === S) cpuTalk(S, pick(CPU_LINES.obey)); }, 700);
-      }
-    }
-    if (cpu.obey > 0) { cpu.obey -= dt; return cpu.obeyDir; }
     // 前に障害物があれば反対車線へよける
     if (wp.dir && sp > 30) {
       const range = Math.max(190, sp * 0.6);
@@ -636,12 +573,6 @@ function cpuControl(S, cpu, role, dt) {
     if (Math.abs(diff) > 0.6) target = Math.min(target, 190);
     if (Math.abs(diff) > 1.6) target = Math.min(target, 110);
   }
-  // 人間のハンドルが道を外れていくとボヤく
-  if (Math.abs(diff) > 2 && sp > 80) {
-    cpu.wrongT = (cpu.wrongT || 0) + dt;
-    if (cpu.wrongT > 3) { cpu.wrongT = -6; cpuTalk(S, pick(['道ちがくない？', 'え、そっち行くの？', '配達先、逆だよ…'])); }
-  } else if (cpu.wrongT > 0) cpu.wrongT = 0;
-
   // 前方の壁
   let wall = 9999;
   for (let r = 30; r <= Math.max(90, sp * 0.7); r += 20) {
@@ -682,7 +613,7 @@ function pack(S) {
     signs: S.signs.map((g) => [Math.round(g.x), Math.round(g.y)]),
     r: S.roles, d: [Math.round(S.dest.x), Math.round(S.dest.y)],
     sc: S.score, dv: S.deliv, h: Math.round(S.heat), cd: Math.round(Math.max(0, S.cond)),
-    g: S.granny, f: S.face || '👵', w: S.warn,
+    w: S.warn,
     st: S.phase === 'result' ? S.stats : null,
   };
 }
@@ -959,12 +890,6 @@ function updateUI(v) {
   $('#hHeat').style.width = v.h + '%';
   $('#hCond').style.width = v.cd + '%';
 
-  const g = $('#granny');
-  if (v.g) {
-    $('#grannyText').textContent = v.g;
-    $('#granny .face').textContent = v.f || '👵';
-    g.classList.add('show');
-  } else g.classList.remove('show');
   $('#warn').classList.toggle('show', !!v.w);
 
   const cnt = $('#count');
@@ -1337,7 +1262,7 @@ function frame(now) {
     if (acc > 0.1) acc = 0;
 
     const evs = sim.events; sim.events = [];
-    for (const ev of evs) { handleEvent(ev); if (sim.cpu) cpuReact(sim, ev); }
+    for (const ev of evs) handleEvent(ev);
     if (mode === 'host') outbox.push(...evs);
     view = pack(sim);
 

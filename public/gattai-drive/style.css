@@ -94,17 +94,6 @@ button { font: inherit; color: inherit; }
 #stage { position: relative; flex: 1; min-height: 0; overflow: hidden; }
 #cv { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
 
-.granny {
-  position: absolute; left: 12px; right: 12px; top: 12px;
-  display: flex; align-items: center; gap: 8px;
-  background: var(--cream); color: var(--ink); border: 3px solid var(--ink);
-  border-radius: 16px; padding: 8px 12px; font-weight: 800; font-size: 17px;
-  box-shadow: 0 4px 0 var(--ink);
-  opacity: 0; transform: translateY(-12px); transition: opacity .15s, transform .15s;
-  pointer-events: none;
-}
-.granny.show { opacity: 1; transform: none; }
-.granny .face { font-size: 28px; }
 
 .warn {
   position: absolute; left: 0; right: 0; bottom: 18px; text-align: center;
