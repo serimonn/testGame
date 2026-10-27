@@ -604,7 +604,7 @@ function pack(S) {
   const c = S.car;
   return {
     t: 's', p: S.phase, n: Math.ceil(S.count), tm: Math.max(0, Math.ceil(STAGE_TIME - S.t)),
-    car: [Math.round(c.x), Math.round(c.y), +c.a.toFixed(2), +c.air.toFixed(2), Math.round(Math.hypot(c.vx, c.vy)), (c.oil || 0) > 0 ? 1 : 0],
+    car: [Math.round(c.x), Math.round(c.y), +c.a.toFixed(2), +c.air.toFixed(2), Math.round(Math.hypot(c.vx, c.vy)), (c.oil || 0) > 0 ? 1 : 0, Math.round(c.vx), Math.round(c.vy)],
     cats: S.cats.map((w) => [Math.round(w.x), Math.round(w.y), Math.cos(w.a) < -0.1 ? -1 : 1,
       w.fly > 0 ? 2 : w.mode === 'sit' ? 1 : 0, w.color, +Math.max(0, w.fly).toFixed(2)]),
     npcs: S.npcs.map((n) => [Math.round(n.x), Math.round(n.y), +n.a.toFixed(2), n.color]),
@@ -725,6 +725,7 @@ function startSolo(type) {
 function receiveState(m) {
   const first = !view;
   view = m;
+  view._t = performance.now();
   if (m.ev) for (const ev of m.ev) handleEvent(ev);
   if (first || !shown) shown = cloneView(m);
 }
@@ -957,7 +958,10 @@ function smoothView(v, dt) {
   const c = shown.car, tc = v.car;
   if (Math.hypot(tc[0] - c[0], tc[1] - c[1]) > 300) shown.car = tc.slice();
   else {
-    c[0] = lerp(c[0], tc[0], k * 2.2); c[1] = lerp(c[1], tc[1], k * 2.2);
+    // 届いた位置から、速度ぶん少し先を予想して追いかける（毎秒10回の受信でも遅れて見えないように）
+    const age = Math.min(0.12, (performance.now() - (v._t || 0)) / 1000);
+    const px = tc[0] + (tc[6] || 0) * age, py = tc[1] + (tc[7] || 0) * age;
+    c[0] = lerp(c[0], px, k * 2.6); c[1] = lerp(c[1], py, k * 2.6);
     c[2] = lerpAngle(c[2], tc[2], k * 2.2); c[3] = tc[3]; c[4] = tc[4]; c[5] = tc[5];
   }
   shown.cats = smoothList(shown.cats, v.cats, k * 2, 0);
@@ -1231,7 +1235,7 @@ function roundRect(x, y, w, h, r) {
 /* =========================================================
    メインループ
    ========================================================= */
-let last = performance.now(), acc = 0, sendAcc = 0;
+let last = performance.now(), acc = 0, sendAcc = 0, sentResult = false;
 let lastSent = '', lastSentS = 0, lastSentP = 0, lastSendT = 0;
 
 function frame(now) {
@@ -1267,11 +1271,16 @@ function frame(now) {
     view = pack(sim);
 
     if (mode === 'host') {
+      // 送る間隔：走行中は毎秒10回、カウントダウン中は毎秒4回、リザルトは1回だけ
+      // （演出イベントは次の送信にまとめて乗せる）
       sendAcc += dt;
-      if (sendAcc >= 0.05 || outbox.length) {
+      const interval = sim.phase === 'play' ? 0.1 : 0.25;
+      const resultDone = sim.phase === 'result' && sentResult;
+      if (!resultDone && (sendAcc >= interval || (sim.phase === 'result' && !sentResult))) {
         sendAcc = 0;
         view.ev = outbox; outbox = [];
         send(view);
+        sentResult = sim.phase === 'result';
       }
     }
   }
