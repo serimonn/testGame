@@ -513,6 +513,38 @@ function waypoint(S) {
   return { ...at(st), turn, dir: [st[2], st[3]] };
 }
 
+// 車から配達先までの道順（道路の中央線をたどる点の列）。表示用
+function routeTo(x, y, dest) {
+  const f = buildField(dest);
+  let cx = coarseOf(x), cy = coarseOf(y);
+  const pts = [[x, y]];
+  if (!coarseRoad(cx, cy) || f[cy * CN + cx] < 0) {
+    const r = nearestRoad(x, y); pts.push([r.x, r.y]); cx = coarseOf(r.x); cy = coarseOf(r.y);
+    if (f[cy * CN + cx] < 0) return pts;
+  }
+  for (let s = 0; s < 40 && f[cy * CN + cx] > 0; s++) {
+    let best = null, bd = f[cy * CN + cx];
+    for (const [ax, ay] of DIRS4) {
+      const nx = cx + ax, ny = cy + ay;
+      if (nx < 0 || ny < 0 || nx >= CN || ny >= CN) continue;
+      const d = f[ny * CN + nx];
+      if (d >= 0 && d < bd) { bd = d; best = [nx, ny]; }
+    }
+    if (!best) break;
+    [cx, cy] = best;
+    // 曲がる点（交差点）だけ残す
+    const p = [coarseCenter(cx), coarseCenter(cy)];
+    if (cx % 2 === 0 && cy % 2 === 0) pts.push(p);
+  }
+  // 最後の交差点から配達先へは、道に沿って直角に曲がる
+  const [lx, ly] = pts[pts.length - 1];
+  if (Math.abs(dest.x - lx) > 4 && Math.abs(dest.y - ly) > 4) {
+    pts.push(Math.abs(dest.x - lx) > Math.abs(dest.y - ly) ? [dest.x, ly] : [lx, dest.y]);
+  }
+  pts.push([dest.x, dest.y]);
+  return pts;
+}
+
 // 進行方向の前方にある障害物（返り値：一番近い距離と種類）
 function obstacleAhead(S, x, y, fx, fy, range, width) {
   let best = { d: 9999, kind: '' };
@@ -991,7 +1023,8 @@ function handleEvent(ev) {
     case 'brake': floatText(ev.x, ev.y, 'ピザが滑った！', '#ffd23f'); buzz(40); break;
     case 'thud': floatText(ev.x, ev.y, 'ドスン', '#fff6e0'); fx.shake = 8; buzz(60); break;
     case 'ruined': floatText(ev.x, ev.y, 'ピザ全損 -30', '#ff4b3e'); fx.shake = 6; break;
-    case 'deliver': floatText(ev.x, ev.y, `配達完了 +${ev.pts}`, '#2ec27e'); buzz([30, 30, 30]); break;
+    case 'deliver': floatText(ev.x, ev.y, `配達完了 +${ev.pts}`, '#2ec27e'); buzz([30, 30, 30]);
+      flash('次の配達先へ！', '光る点線をたどれ'); setTimeout(hideFlash, 900); break;
     case 'go': flash('GO!', ''); setTimeout(hideFlash, 600); break;
     case 'swap': break; // 役割の変化は描画側で検出して演出
   }
@@ -1383,8 +1416,19 @@ function render(v, dt) {
   fx.skids = fx.skids.filter((k) => k.t < 1.5);
   if (car[5]) fx.skids.push({ x: car[0], y: car[1], a: car[2], t: 0 });
 
-  // 配達先の輪（地面）
+  // 配達先までの道順（光る点線。配達先へ向かって流れる）
   const [dx, dy] = v.d;
+  const route = routeTo(car[0], car[1], { x: dx, y: dy });
+  let routeLen = 0;
+  for (let i = 1; i < route.length; i++) routeLen += Math.hypot(route[i][0] - route[i - 1][0], route[i][1] - route[i - 1][1]);
+  ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+  ctx.beginPath(); ctx.moveTo(route[0][0], route[0][1]);
+  for (let i = 1; i < route.length; i++) ctx.lineTo(route[i][0], route[i][1]);
+  ctx.strokeStyle = 'rgba(46,194,126,.28)'; ctx.lineWidth = 26; ctx.setLineDash([]); ctx.stroke();
+  ctx.strokeStyle = '#7ff0b4'; ctx.lineWidth = 9; ctx.setLineDash([2, 30]); ctx.lineDashOffset = -animT * 90; ctx.stroke();
+  ctx.setLineDash([]); ctx.lineDashOffset = 0;
+
+  // 配達先の輪（地面）
   const pulse = 1 + Math.sin(animT * 6) * 0.12;
   ctx.fillStyle = 'rgba(46,194,126,.25)';
   ctx.beginPath(); ctx.arc(dx, dy, 60 * pulse, 0, Math.PI * 2); ctx.fill();
@@ -1407,14 +1451,25 @@ function render(v, dt) {
 
   // --- 目印と文字（いちばん上） ---
   ctx.font = '44px serif'; ctx.fillText('🍕', START.x, START.y - 4);
+  // 光の柱（建物より高く伸ばして、ビルの向こうでも見えるように）
+  const base = proj(dx, dy, 0), topP = proj(dx, dy, 300);
+  const beam = ctx.createLinearGradient(base[0], base[1], topP[0], topP[1]);
+  beam.addColorStop(0, 'rgba(127,240,180,.55)'); beam.addColorStop(1, 'rgba(127,240,180,0)');
+  const bw = 34 + Math.sin(animT * 5) * 4;
+  const ang = Math.atan2(topP[1] - base[1], topP[0] - base[0]) + Math.PI / 2;
+  const ox = Math.cos(ang), oy = Math.sin(ang);
+  ctx.fillStyle = beam;
+  ctx.beginPath();
+  ctx.moveTo(base[0] + ox * bw, base[1] + oy * bw); ctx.lineTo(topP[0] + ox * bw * 0.6, topP[1] + oy * bw * 0.6);
+  ctx.lineTo(topP[0] - ox * bw * 0.6, topP[1] - oy * bw * 0.6); ctx.lineTo(base[0] - ox * bw, base[1] - oy * bw);
+  ctx.closePath(); ctx.fill();
+
   const hp = proj(dx, dy, 40);
-  ctx.font = '50px serif'; ctx.fillText('🏠', hp[0], hp[1] - 6 + Math.sin(animT * 4) * 4);
+  const bob = Math.sin(animT * 4) * 4;
+  ctx.font = '50px serif'; ctx.fillText('🏠', hp[0], hp[1] - 6 + bob);
   const near = Math.hypot(dx - car[0], dy - car[1]);
-  if (near < 180 && car[4] >= 60) {
-    ctx.font = '28px "Dela Gothic One", sans-serif';
-    ctx.fillStyle = '#fff6e0'; ctx.strokeStyle = '#17151a'; ctx.lineWidth = 6;
-    ctx.strokeText('止まって！', hp[0], hp[1] - 60); ctx.fillText('止まって！', hp[0], hp[1] - 60);
-  }
+  const label = near < 180 && car[4] >= 60 ? '止まって！' : '目的地！';
+  drawTag(hp[0], hp[1] - 66 + bob, label, near < 180 && car[4] >= 60 ? '#ff4b3e' : '#2ec27e', 20, camX + 8, camX + CW / zoom - 8);
 
   ctx.font = '30px "Dela Gothic One", sans-serif';
   for (const f of fx.floats) {
@@ -1440,17 +1495,35 @@ function render(v, dt) {
   if (sxp < 0 || syp < 0 || sxp > CW || syp > CH) {
     const cx = CW / 2, cy = CH * 0.55;
     const ang = Math.atan2(syp - cy, sxp - cx);
-    const m = 30;
+    const m = 34;
     const kx = (Math.cos(ang) > 0 ? CW - m - cx : m - cx) / Math.cos(ang);
     const ky = (Math.sin(ang) > 0 ? CH - m - cy : m - cy) / Math.sin(ang);
     const kk = Math.min(Math.abs(kx), Math.abs(ky));
     const ax = cx + Math.cos(ang) * kk, ay = cy + Math.sin(ang) * kk;
-    ctx.save(); ctx.translate(ax, ay); ctx.rotate(ang);
-    ctx.fillStyle = '#2ec27e'; ctx.strokeStyle = '#17151a'; ctx.lineWidth = 3;
-    ctx.beginPath(); ctx.moveTo(18, 0); ctx.lineTo(-12, -14); ctx.lineTo(-6, 0); ctx.lineTo(-12, 14); ctx.closePath();
+    const pulseA = 1 + Math.sin(animT * 7) * 0.08;
+    ctx.save(); ctx.translate(ax, ay); ctx.rotate(ang); ctx.scale(pulseA, pulseA);
+    ctx.fillStyle = '#2ec27e'; ctx.strokeStyle = '#17151a'; ctx.lineWidth = 4; ctx.lineJoin = 'round';
+    ctx.beginPath(); ctx.moveTo(26, 0); ctx.lineTo(-16, -22); ctx.lineTo(-8, 0); ctx.lineTo(-16, 22); ctx.closePath();
     ctx.fill(); ctx.stroke();
     ctx.restore();
+    // 矢印の内側に「目的地！ ○m」（文字は回さない）
+    const tx = ax - Math.cos(ang) * 62, ty = clamp(ay - Math.sin(ang) * 46, 28, CH - 28);
+    drawTag(tx, ty, `目的地！ ${Math.max(1, Math.round(routeLen / 10))}m`, '#2ec27e', 15, 8, CW - 8);
   }
+}
+
+// 吹き出し風のラベル（画面に対して水平）
+function drawTag(x, y, text, color, size = 20, minX = -Infinity, maxX = Infinity) {
+  ctx.save();
+  ctx.font = `${size}px "Dela Gothic One", "Hiragino Sans", sans-serif`;
+  ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  const w = ctx.measureText(text).width + size * 1.1, h = size * 1.7;
+  x = clamp(x, minX + w / 2, maxX - w / 2); // 画面からはみ出さないように
+  ctx.fillStyle = '#17151a'; roundRect(x - w / 2 + 3, y - h / 2 + 4, w, h, h / 2); ctx.fill();
+  ctx.fillStyle = color; ctx.strokeStyle = '#17151a'; ctx.lineWidth = 3;
+  roundRect(x - w / 2, y - h / 2, w, h, h / 2); ctx.fill(); ctx.stroke();
+  ctx.fillStyle = '#fff6e0'; ctx.fillText(text, x, y + 1);
+  ctx.restore();
 }
 
 const CAT_COLORS = [
