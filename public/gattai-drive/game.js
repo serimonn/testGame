@@ -950,17 +950,39 @@ function hideOverlays() {
 const input = { steer: 0, pedal: 0, keySteer: 0, keyPedal: 0, touchSteer: 0, gas: false, brake: false };
 const wheelEl = $('#wheel');
 
+// ハンドル：指で円を描くように回す。回した角度（最大 ±WHEEL_MAX 度）で曲がる。
+// 指を離すと本物の車のように真ん中へ戻る
+const WHEEL_MAX = 150;
+let wheelDeg = 0;        // ハンドルの今の角度（度）
+let wheelHeld = false;
 (function setupSteer() {
   const pad = $('#steerPad');
-  let pid = null, sx = 0;
+  let pid = null, lastAng = null;
+  const angleAt = (e) => {
+    const r = wheelEl.getBoundingClientRect();
+    const cx = r.left + r.width / 2, cy = r.top + r.height / 2;
+    const dx = e.clientX - cx, dy = e.clientY - cy;
+    // 中心のすぐ近くは角度がぶれるので使わない
+    if (Math.hypot(dx, dy) < r.width * 0.12) return null;
+    return Math.atan2(dy, dx) * 180 / Math.PI;
+  };
   pad.addEventListener('pointerdown', (e) => {
-    pid = e.pointerId; sx = e.clientX; pad.setPointerCapture(pid); e.preventDefault();
+    if (pid !== null) return;
+    pid = e.pointerId; pad.setPointerCapture(pid); e.preventDefault();
+    wheelHeld = true; lastAng = angleAt(e);
   });
   pad.addEventListener('pointermove', (e) => {
     if (e.pointerId !== pid) return;
-    input.touchSteer = clamp((e.clientX - sx) / (pad.clientWidth * 0.28), -1, 1);
+    const a = angleAt(e);
+    if (a === null) return;
+    if (lastAng !== null) {
+      let d = a - lastAng;
+      if (d > 180) d -= 360; else if (d < -180) d += 360;   // -180〜180度の境目をまたいだとき
+      wheelDeg = clamp(wheelDeg + d, -WHEEL_MAX, WHEEL_MAX);
+    }
+    lastAng = a;
   });
-  const end = (e) => { if (e.pointerId === pid) { pid = null; input.touchSteer = 0; } };
+  const end = (e) => { if (e.pointerId === pid) { pid = null; wheelHeld = false; lastAng = null; } };
   pad.addEventListener('pointerup', end);
   pad.addEventListener('pointercancel', end);
 })();
@@ -982,14 +1004,20 @@ addEventListener('keydown', (e) => { keys.add(e.key.toLowerCase()); });
 addEventListener('keyup', (e) => { keys.delete(e.key.toLowerCase()); });
 document.addEventListener('gesturestart', (e) => e.preventDefault());
 
+let lastInputT = performance.now();
 function readInput() {
+  const nowT = performance.now(), dtIn = Math.min(0.1, (nowT - lastInputT) / 1000);
+  lastInputT = nowT;
+  if (!wheelHeld) wheelDeg *= Math.exp(-dtIn * 10);   // 離すと真ん中へ戻る（約0.3秒）
+  if (Math.abs(wheelDeg) < 0.5) wheelDeg = wheelHeld ? wheelDeg : 0;
+  input.touchSteer = wheelDeg / WHEEL_MAX;
   const kl = keys.has('arrowleft') || keys.has('a'), kr = keys.has('arrowright') || keys.has('d');
   const ku = keys.has('arrowup') || keys.has('w'), kd = keys.has('arrowdown') || keys.has('s');
   input.steer = clamp(input.touchSteer + (kr ? 1 : 0) - (kl ? 1 : 0), -1, 1);
   input.pedal = clamp((input.gas || ku ? 1 : 0) - (input.brake || kd ? 1 : 0), -1, 1);
 }
 function resetLocalInput() {
-  input.touchSteer = 0; input.gas = false; input.brake = false;
+  input.touchSteer = 0; wheelDeg = 0; input.gas = false; input.brake = false;
   $('#gas').classList.remove('down'); $('#brake').classList.remove('down');
 }
 
@@ -1655,7 +1683,7 @@ function frame(now) {
   const dt = Math.min(0.1, (now - last) / 1000);
   last = now;
   readInput();
-  wheelEl.style.transform = `rotate(${input.steer * 120}deg)`;
+  wheelEl.style.transform = `rotate(${input.steer * WHEEL_MAX}deg)`;
 
   if ((mode === 'host' || mode === 'solo') && sim && !paused && !reconnecting) {
     acc += dt;
