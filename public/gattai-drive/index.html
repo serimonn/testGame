@@ -5,9 +5,9 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
 <meta name="theme-color" content="#ffd23f">
 <title>合体ドライブ</title>
-<meta name="description" content="1台の車を2台のスマホで運転するバカゲー。片方はハンドルだけ、もう片方はアクセルとブレーキだけ。ピザを熱いうちに届けろ。">
+<meta name="description" content="1台の車を2台のスマホで運転するバカゲー。片方はハンドルだけ、もう片方はアクセルとブレーキだけ。荷物を時間内に、壊さず届けろ。">
 <meta property="og:title" content="合体ドライブ">
-<meta property="og:description" content="1台の車を2台のスマホで。片方はハンドルだけ、もう片方はペダルだけ。ピザを熱いうちに届けろ。">
+<meta property="og:description" content="1台の車を2台のスマホで。片方はハンドルだけ、もう片方はペダルだけ。荷物を時間内に、壊さず届けろ。">
 <meta property="og:type" content="website">
 <meta name="twitter:card" content="summary">
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -23,7 +23,7 @@
   <div class="lobby-inner">
     <p class="kicker">1台の車を、2台のスマホで。</p>
     <h1 class="logo">合体<br>ドライブ</h1>
-    <p class="lead">片方は<b>ハンドルだけ</b>。もう片方は<b>アクセルとブレーキだけ</b>。<br>ピザを熱いうちに届けろ。</p>
+    <p class="lead">片方は<b>ハンドルだけ</b>。もう片方は<b>アクセルとブレーキだけ</b>。<br>荷物を時間内に、壊さず届けろ。</p>
     <button id="btnCreate" class="btn big yellow">部屋をつくる</button>
     <div class="join">
       <input id="codeInput" inputmode="numeric" pattern="[0-9]*" maxlength="4" placeholder="部屋コード">
@@ -55,8 +55,8 @@
     <div class="hud-cell"><span class="lbl">配達</span><span id="hDeliv" class="val">0</span></div>
     <div class="hud-cell"><span class="lbl">スコア</span><span id="hScore" class="val">0</span></div>
     <div class="bars">
-      <div class="bar"><span>🔥</span><i><b id="hHeat"></b></i></div>
-      <div class="bar"><span>🍕</span><i><b id="hCond"></b></i></div>
+      <div class="bar" title="時間指定"><span>⏱</span><i><b id="hHeat"></b></i></div>
+      <div class="bar" title="荷物の状態"><span>📦</span><i><b id="hCond"></b></i></div>
     </div>
   </div>
 

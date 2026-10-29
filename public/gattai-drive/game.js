@@ -83,7 +83,7 @@ function newSim() {
 }
 
 /* ---------- 障害物 ----------
-   コーン：工事区間で片側の車線をふさぐ。はね飛ばせるがピザが揺れる
+   コーン：工事区間で片側の車線をふさぐ。はね飛ばせるが荷物が揺れる
    他の車：交差点ごとに気まぐれに曲がる。ぶつかると激突
    オイル：踏むとツルッと滑ってハンドルが効きすぎる               */
 const DIRS4 = [[1, 0], [-1, 0], [0, 1], [0, -1]];
@@ -377,7 +377,7 @@ function stepSim(S, dt, steer, pedal) {
     }
   }
 
-  // --- ピザ ---
+  // --- 荷物（heat＝時間指定の残り、cond＝荷物の状態） ---
   S.heat = Math.max(0, S.heat - dt * 2.6);
   if (S.cond <= 0) {
     S.score = Math.max(0, S.score - 30);
@@ -1048,9 +1048,9 @@ function handleEvent(ev) {
     case 'cone': floatText(ev.x, ev.y, 'カーン！', '#ff7a1a'); fx.shake = 4; buzz(25); break;
     case 'oil': floatText(ev.x, ev.y, 'ツルッ！', '#9fd3ff'); buzz([20, 20, 20, 20]); break;
     case 'honk': floatText(ev.x, ev.y, 'プップー！', '#fff6e0'); break;
-    case 'brake': floatText(ev.x, ev.y, 'ピザが滑った！', '#ffd23f'); buzz(40); break;
+    case 'brake': floatText(ev.x, ev.y, '荷物が崩れた！', '#ffd23f'); buzz(40); break;
     case 'thud': floatText(ev.x, ev.y, 'ドスン', '#fff6e0'); fx.shake = 8; buzz(60); break;
-    case 'ruined': floatText(ev.x, ev.y, 'ピザ全損 -30', '#ff4b3e'); fx.shake = 6; break;
+    case 'ruined': floatText(ev.x, ev.y, '荷物全損 -30', '#ff4b3e'); fx.shake = 6; break;
     case 'deliver': floatText(ev.x, ev.y, `配達完了 +${ev.pts}`, '#2ec27e'); buzz([30, 30, 30]);
       flash('次の配達先へ！', '光る点線をたどれ'); setTimeout(hideFlash, 900); break;
     case 'go': flash('GO!', ''); setTimeout(hideFlash, 600); break;
@@ -1142,7 +1142,7 @@ function tweetUrl(v, k) {
   const st = v.st;
   const who = mode === 'solo' ? (soloType === 'cpu' ? 'ポンコツCPUと' : 'ひとりで') : 'ふたりで';
   const lines = [
-    `${who}1台の車を運転して、ピザを${v.dv}枚配達🍕 スコア${v.sc}（${rankOf(v.sc).r}ランク：${rankOf(v.sc).name}）`,
+    `${who}1台の車を運転して、荷物を${v.dv}個配達📦 スコア${v.sc}（${rankOf(v.sc).r}ランク：${rankOf(v.sc).name}）`,
     `喧嘩度${k}%「${kenkaTitle(k)}」`,
   ];
   const extra = [];
@@ -1478,7 +1478,7 @@ function render(v, dt) {
   }
 
   // --- 目印と文字（いちばん上） ---
-  ctx.font = '44px serif'; ctx.fillText('🍕', START.x, START.y - 4);
+  drawTag(START.x, START.y - 30, '営業所', '#6d8bc7', 14);
   // 光の柱（建物より高く伸ばして、ビルの向こうでも見えるように）
   const base = proj(dx, dy, 0), topP = proj(dx, dy, 300);
   const beam = ctx.createLinearGradient(base[0], base[1], topP[0], topP[1]);
@@ -1497,7 +1497,11 @@ function render(v, dt) {
   ctx.font = '50px serif'; ctx.fillText('🏠', hp[0], hp[1] - 6 + bob);
   const near = Math.hypot(dx - car[0], dy - car[1]);
   const label = near < 180 && car[4] >= 60 ? '止まって！' : '目的地！';
-  drawTag(hp[0], hp[1] - 66 + bob, label, near < 180 && car[4] >= 60 ? '#ff4b3e' : '#2ec27e', 20, camX + 8, camX + CW / zoom - 8);
+  // 家が画面に入っているときだけ（画面外のときは端の矢印に「目的地！」を出す）
+  const hsx = (hp[0] - camX) * zoom, hsy = (hp[1] - camY) * zoom;
+  if (hsx > 0 && hsx < CW && hsy > 0 && hsy < CH) {
+    drawTag(hp[0], hp[1] - 66 + bob, label, near < 180 && car[4] >= 60 ? '#ff4b3e' : '#2ec27e', 20, camX + 8, camX + CW / zoom - 8);
+  }
 
   ctx.font = '30px "Dela Gothic One", sans-serif';
   for (const f of fx.floats) {
@@ -1535,7 +1539,8 @@ function render(v, dt) {
     ctx.fill(); ctx.stroke();
     ctx.restore();
     // 矢印の内側に「目的地！ ○m」（文字は回さない）
-    const tx = ax - Math.cos(ang) * 62, ty = clamp(ay - Math.sin(ang) * 46, 28, CH - 28);
+    // 文字は矢印の上か下（画面の内側寄り）に置いて、矢印と重ならないように
+    const tx = ax, ty = ay + (ay < CH / 2 ? 44 : -44);
     drawTag(tx, ty, `目的地！ ${Math.max(1, Math.round(routeLen / 10))}m`, '#2ec27e', 15, 8, CW - 8);
   }
 }
@@ -1645,7 +1650,7 @@ function rectAt(x, y, a, x0, y0, x1, y1) {
   return [[x0, y0], [x1, y0], [x1, y1], [x0, y1]].map(([u, w]) => [x + u * c - w * s, y + u * s + w * c]);
 }
 
-function drawCar(c, body, glass, pizza) {
+function drawCar(c, body, glass, parcel) {
   const [x, y, a, air] = c;
   const lift = air > 0 ? Math.sin(Math.min(1, air / 1.3) * Math.PI) * 60 : 0;
   // 影
@@ -1665,7 +1670,11 @@ function drawCar(c, body, glass, pizza) {
   ctx.fillStyle = '#fff6e0';
   ctx.beginPath(); ctx.arc(l1[0], l1[1], 3, 0, Math.PI * 2); ctx.fill();
   ctx.beginPath(); ctx.arc(l2[0], l2[1], 3, 0, Math.PI * 2); ctx.fill();
-  if (pizza) drawPrism(rectAt(x, y, a, -11, -8, 5, 8), roofH, roofH + 7, '#ffd23f', { lw: 2 }); // 屋根のピザ箱
+  if (parcel) { // 屋根に積んだ段ボール（ガムテープつき）
+    drawPrism(rectAt(x, y, a, -13, -9, 7, 9), roofH, roofH + 10, '#c98b4f', { lw: 2, top: '#d9a066' });
+    const t0 = proj(...rectAt(x, y, a, -3, -9, -1, 9)[0], roofH + 10), t1 = proj(...rectAt(x, y, a, -3, -9, -1, 9)[3], roofH + 10);
+    ctx.strokeStyle = '#f2cc8f'; ctx.lineWidth = 3; ctx.beginPath(); ctx.moveTo(t0[0], t0[1]); ctx.lineTo(t1[0], t1[1]); ctx.stroke();
+  }
 }
 function roundRect(x, y, w, h, r) {
   ctx.beginPath();
