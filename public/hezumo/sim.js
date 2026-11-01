@@ -106,7 +106,7 @@
 
     if (tgt.firedAgo <= c.PARRY_F) { // 屁返し
       const bx = owner.x - tgt.x, by = owner.y - tgt.y, bl = Math.hypot(bx, by) || 1;
-      const v = c.BLAST * Math.max(w.p, 0.6) * c.PARRY_MULT / owner.mass;
+      const v = Math.min(c.HIT_V_MAX, c.BLAST * Math.max(w.p, 0.6) * c.PARRY_MULT * fall) / owner.mass;
       owner.vx += bx / bl * v; owner.vy += by / bl * v;
       owner.lastHit = { by: tgt.idx, kind: 'hekaeshi', f: s.frame };
       s.stop = Math.max(s.stop, c.STOP_PARRY);
@@ -114,7 +114,7 @@
       return;
     }
     const whiff = tgt.firedAgo < 40 ? c.WHIFF_MULT : 1;
-    const v = c.BLAST * w.p * fall * whiff / tgt.mass;
+    const v = Math.min(c.HIT_V_MAX, c.BLAST * w.p * fall * whiff) / tgt.mass;
     tgt.vx += tx / dist * v; tgt.vy += ty / dist * v;
     tgt.lastHit = { by: owner.idx, kind: w.crit ? 'kaishin' : w.imo ? 'imo' : 'hohi', f: s.frame };
     const stop = Math.round(c.STOP_HIT_MIN + (c.STOP_HIT_MAX - c.STOP_HIT_MIN) * Math.min(1, w.p / 1.5));

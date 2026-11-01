@@ -4,7 +4,7 @@
     // 土俵
     RING_R: 230, RING_MIN_R: 70,
     SHRINK_START_F: 1200, SHRINK_END_F: 2700,
-    START_DIST: 110,
+    START_DIST: 90,
     READY_F: 48,
     // 動き
     FRICTION: 0.965,
@@ -14,15 +14,17 @@
     CHARGE_F: 96, DANGER_C: 0.65, CRIT_C: 0.86,
     // 放屁
     POWER_MIN: 0.3,
-    RECOIL: 105, BLAST: 235,
-    CRIT_MULT: 1.5, OVER_MULT: 1.25, OVER_RECOIL_MULT: 1.5,
+    RECOIL: 85, BLAST: 235,
+    CRIT_MULT: 1.25, OVER_MULT: 1.25, OVER_RECOIL_MULT: 1.5,
+    // 1発で受ける速さの上限。中央寄りからは一発で落ちない強さにする
+    HIT_V_MAX: 205,
     RANGE_MIN: 130, RANGE_MAX: 380,
     CONE_HALF: 30 * Math.PI / 180,
     WAVE_SPEED: 900 / 60,
     FALLOFF: 0.45,
     RECOVER_F: 20, OVER_RECOVER_F: 45,
     // 屁返し
-    PARRY_F: 9, PARRY_MULT: 1.15, WHIFF_MULT: 1.25,
+    PARRY_F: 9, PARRY_MULT: 1, WHIFF_MULT: 1.25,
     // 芋
     IMO_EVERY_F: 360, IMO_R_RATE: 0.8, IMO_POWER: 1.3, IMO_CHARGE: 1.4,
     // 止め(F)
