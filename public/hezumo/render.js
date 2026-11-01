@@ -346,11 +346,16 @@
       }
       if (s.phase === 'ready') this.centerText(ctx, 'はっけよい…', CY - 148, 56, '#fff');
       if (m.tip) {
-        if (portrait) {
-          const i = m.tip.indexOf('。', m.tip.indexOf('。') + 1) + 1;
-          this.centerText(ctx, m.tip.slice(0, i), H - 150, 22, '#fff3b0', GOTHIC);
-          this.centerText(ctx, m.tip.slice(i), H - 120, 22, '#fff3b0', GOTHIC);
-        } else this.centerText(ctx, m.tip, H - 62, 20, '#fff3b0', GOTHIC);
+        const size = portrait ? 22 : 20;
+        ctx.font = `900 ${size}px ${GOTHIC}`;
+        const lines = [];
+        for (const part of m.tip.match(/[^。!]+[。!]*/g)) {
+          const last = lines.length - 1;
+          if (last >= 0 && ctx.measureText(lines[last] + part).width < W - 32) lines[last] += part;
+          else lines.push(part);
+        }
+        const base = (portrait ? H - 120 : H - 62) - (lines.length - 1) * (size + 8);
+        lines.forEach((t, i) => this.centerText(ctx, t, base + i * (size + 8), size, '#fff3b0', GOTHIC));
       }
       if (s.R < c.RING_R && s.R > c.RING_MIN_R && s.frame % 60 < 40) this.centerText(ctx, '土俵が縮む!', CY - 214, 22, '#ff8d7c', GOTHIC);
     },

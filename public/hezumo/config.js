@@ -31,6 +31,8 @@
     WINS_2P: 3, WINS_SOLO: 2,
     KO_SHOW_F: 72, KO_SKIP_AFTER_F: 18,
     CHANKO_MASS: 1.35, CHANKO_AFTER_LOSSES: 3,
+    // 取組中の説明を出す長さ
+    COACH_TIP_F: 270,
     // 見た目
     SHAKE: 0.6,
   };

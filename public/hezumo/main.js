@@ -9,14 +9,14 @@
   const isTouch = /[?&]touch/.test(location.search) || matchMedia('(pointer: coarse)').matches || (navigator.maxTouchPoints > 0 && /Android|iPhone|iPad|Mobile/.test(navigator.userAgent));
 
   const DEFAULTS = {
-    rank: 0, kim: {}, skin: 'normal', tipDone: false, picked: 'imo', losses: 0,
+    rank: 0, kim: {}, seenTips: {}, skin: 'normal', tipDone: false, picked: 'imo', losses: 0,
     settings: { bgm: 0.5, se: 0.9, voice: 0.9, shake: 0.6, lowFlash: false, onomatopoeia: true, easy: false, keyA: 'KeyQ', keyB: 'KeyP' },
   };
   let save = load();
   function load() {
     let o = {};
     try { o = JSON.parse(localStorage.getItem(STORE)) || {}; } catch (e) {}
-    return { ...DEFAULTS, ...o, settings: { ...DEFAULTS.settings, ...(o.settings || {}) }, kim: o.kim || {} };
+    return { ...DEFAULTS, ...o, settings: { ...DEFAULTS.settings, ...(o.settings || {}) }, kim: o.kim || {}, seenTips: o.seenTips || {} };
   }
   function store() { try { localStorage.setItem(STORE, JSON.stringify(save)); } catch (e) {} }
 
@@ -84,7 +84,7 @@
     $ui.innerHTML = html;
     pauseBtn.classList.toggle('hidden', name !== 'bout');
     const first = $ui.querySelector('[autofocus]') || $ui.querySelector('button');
-    if (first) first.focus();
+    if (first) first.focus({ preventScroll: true });
     $ui.querySelectorAll('button').forEach(b => b.addEventListener('click', () => Snd.play('ui', { vol: 0.6, dur: 0.2 })));
   }
   const on = (sel, fn) => { const el = $ui.querySelector(sel); if (el) el.addEventListener('click', fn); };
@@ -99,10 +99,11 @@
       <div class="menu">
         <button class="btn" id="m1" autofocus>ひとりで出世<small>コンピューターと戦って番付を上げる(いまは${r.rank})</small></button>
         ${isTouch ? '' : '<button class="btn" id="m2">となりの人と<small>同じ画面でふたりで戦う</small></button>'}
+        <button class="btn" id="m5">遊び方<small>勝ち方、会心、屁返しを知る</small></button>
         <button class="btn" id="m3">決まり手図鑑<small>これまでに出した技と屁の音を見る</small></button>
         <button class="btn" id="m4">設定<small>${isTouch ? '音量や揺れを変える' : '音量、揺れ、ボタンを変える'}</small></button>
       </div></div>`);
-    on('#m1', selectSolo); on('#m2', select2); on('#m3', zukan); on('#m4', () => settings(title));
+    on('#m1', selectSolo); on('#m2', select2); on('#m3', zukan); on('#m5', () => howto(title)); on('#m4', () => settings(title));
   }
   const card = (k, cls) => `<button class="card ${cls || ''}" data-k="${k}"><img src="assets/img/${k}.jpg" alt=""><div class="nm">${CHARS[k].name}</div><div class="cp">${CHARS[k].copy}</div></button>`;
 
@@ -171,6 +172,41 @@
     Snd.play('v_hakke', { vol: 0.8 });
     Snd.play('taiko', { vol: 0.5, dur: 0.6 });
   }
+  const COACH = {
+    rumble: '腹が鳴ったら暴発が近い。白いところで離すと会心!',
+    crit: '会心! ゲージの白いところで離すと威力1.5倍。',
+    over: '暴発! 満タンまで溜めると勝手に出て、大きく飛ぶ。',
+    hit: '食らった! 屁が届く直前に撃つと跳ね返せる(屁返し)。',
+    parry: '屁返し! 届く直前に撃つと相手が飛ぶ。',
+    imo: '芋! 拾うと次の一発が強くなる。',
+    shrink: '時間がたつと土俵が縮む。早めに決めよう。',
+    fall: '赤い✕は、撃つと自分が落ちる印。向きを待とう。',
+  };
+  let coach = null, coachF = 0;
+  function coachTip(id) {
+    if (save.seenTips[id] || (coach && coachF > 0)) return;
+    save.seenTips[id] = true; store();
+    coach = COACH[id]; coachF = c.COACH_TIP_F;
+  }
+  function coachCheck() {
+    const human = i => match.mode === '2p' || i === 0;
+    for (const e of sim.events) {
+      if (e.t === 'rumble' && human(e.i)) coachTip('rumble');
+      else if (e.t === 'fire' && human(e.i) && e.crit) coachTip('crit');
+      else if (e.t === 'fire' && human(e.i) && e.over) coachTip('over');
+      else if (e.t === 'hit' && human(e.i)) coachTip('hit');
+      else if (e.t === 'parry') coachTip('parry');
+      else if (e.t === 'imoSpawn') coachTip('imo');
+    }
+    if (sim.R < c.RING_R) coachTip('shrink');
+    for (const f of sim.f) {
+      if (f.charging && human(f.idx) && !f.ch.silent) {
+        const d = Sim.recoilDist(f);
+        if (Math.hypot(f.x + Math.cos(f.a) * d, f.y + Math.sin(f.a) * d) > sim.R) coachTip('fall');
+      }
+    }
+    if (coachF > 0) coachF--;
+  }
   function fartSound(e) {
     const skin = save.skin, rate = 0.92 + Math.random() * 0.16;
     if (e.silent) { Snd.play('fart_s', { vol: 0.08, dur: 0.2 }); return; }
@@ -211,7 +247,7 @@
     const hints = match.mode === 'solo'
       ? [isTouch ? '画面のどこでも長押し' : `${keyName(s.keyA)} か スペース か 画面を長押し`, null]
       : [`${keyName(s.keyA)} か 左半分を長押し`, `${keyName(s.keyB)} か 右半分を長押し`];
-    const tip = !save.tipDone && !firstHit ? '長押しで溜める。離すと出る。お尻を相手に向けて!' : null;
+    const tip = coachF > 0 ? coach : !save.tipDone && !firstHit ? '長押しで溜める。離すと出る。お尻を相手に向けて!' : null;
     return {
       labels: match.mode === 'solo' ? ['あなた', 'CPU'] : ['ひとりめ', 'ふたりめ'],
       score: match.score, winsNeed: match.need, rankText: match.rankText, hints, tip, koF: sim.phase === 'end' ? koF : undefined,
@@ -221,6 +257,7 @@
     const inputs = [held(0), brain ? AI.think(sim, 1, brain) : held(1)];
     Sim.step(sim, inputs);
     onEvents();
+    coachCheck();
     Render.tick(sim);
     if (sim.phase === 'end' && sim.stop === 0) {
       koF++;
@@ -321,6 +358,27 @@
     pic.onload = finish; pic.onerror = finish; pic.src = `assets/img/${key}.jpg`;
   }
 
+  function howto(back) {
+    const key = isTouch ? '画面を長押し' : '長押し';
+    show('howto', `<div class="screen howto"><h2>遊び方</h2>
+      <section><h3>相手を土俵の外へ出せば1本</h3>
+        <p>${key}で溜めて、離すと屁が出る。力士は勝手に回るので、<b>お尻が相手を向いた瞬間</b>に離す。</p>
+        <p>撃つと自分は<b>顔の向きへ飛ぶ</b>。歩けないので、動くのも屁だけ。</p></section>
+      <section><h3>溜めの目もり</h3>
+        <div class="gauge"><span class="g1">溜める</span><span class="g2">腹が鳴る</span><span class="g3">会心</span></div>
+        <p>満タンまで溜めると<b>暴発</b>。勝手に出て、大きく飛び、しばらく動けない。</p></section>
+      <section><h3>技</h3>
+        <p><b>会心</b>:白いところで離す。威力1.5倍。</p>
+        <p><b>屁返し</b>:相手の屁が届く直前に自分も撃つ。尻の向きは関係なく、相手が飛ぶ。早すぎると強く食らう。相手が遠いほど狙いやすい。</p></section>
+      <section><h3>土俵の見方</h3>
+        <p><b>扇形</b>:屁の届く範囲。<b>点線の先</b>:反動で飛ぶ先。<b class="ng">赤い✕</b>:撃つと自分が落ちる。</p>
+        <p><b>芋</b>:拾うと次の一発が強い。20秒をすぎると土俵が縮む。</p></section>
+      <section><h3>勝つコツ</h3>
+        <p>大きく溜めるのは、前に土俵が残っているときだけ。追い込まれたら、お尻を外へ向けて小さく撃つと中へ戻れる。</p></section>
+      <button class="btn" id="back" autofocus style="width:auto">もどる</button></div>`, back);
+    on('#back', back);
+  }
+
   function zukan() {
     const rows = Object.keys(KIMARITE).map(k => {
       const n = save.kim[k] || 0;
@@ -385,9 +443,10 @@
       paused = true;
       show('pause', `<div class="screen" style="justify-content:center"><h2>一時停止</h2><div class="menu">
         <button class="btn" id="res" autofocus>つづける</button>
+        <button class="btn" id="how">遊び方</button>
         <button class="btn" id="st">設定</button>
         <button class="btn" id="quit">やめてタイトルへ</button></div></div>`, resume);
-      on('#res', resume); on('#st', () => settings(showPause)); on('#quit', () => { paused = false; title(); });
+      on('#res', resume); on('#how', () => howto(showPause)); on('#st', () => settings(showPause)); on('#quit', () => { paused = false; title(); });
     };
     const resume = () => { paused = false; show('bout', ''); };
     showPause();

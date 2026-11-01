@@ -48,6 +48,16 @@ table.zk td { border-bottom: 1px solid #fff2; padding: 3px 8px; font-size: max(1
 .set select, .keybtn { font: inherit; padding: 6px 10px; min-height: 40px; background: var(--paper); color: var(--ink); border: 0; cursor: pointer; }
 .set input[type=checkbox] { width: 22px; height: 22px; }
 .credit { font-size: max(11px, 2cqmin); color: #a3917a; }
+.howto section { width: min(620px, 100%); }
+.howto h3 { font-family: var(--mincho); font-size: max(17px, 3.6cqmin); margin: 0 0 4px; color: var(--gold); }
+.howto p { margin: 0 0 6px; font-size: max(14px, 2.8cqmin); line-height: 1.55; }
+.howto b { color: #fff; }
+.howto b.ng { color: #ff6a50; }
+.gauge { display: flex; height: 30px; margin-bottom: 6px; font-size: 13px; font-weight: 700; color: var(--ink); text-align: center; line-height: 30px; }
+.gauge span { display: block; overflow: hidden; white-space: nowrap; }
+.gauge .g1 { width: 65%; background: #d9cd4a; }
+.gauge .g2 { width: 21%; background: #ef5a2c; color: #fff; }
+.gauge .g3 { width: 14%; background: #fff; }
 @container (max-height: 420px) { .btn small { display: none; } .btn { min-height: 40px; padding: .3em 1em; } h1 { font-size: 13cqmin; } }
 @media (max-aspect-ratio: 1/1) {
   #stage { width: 100vw; height: 100dvh; }
@@ -59,3 +69,4 @@ table.zk td { border-bottom: 1px solid #fff2; padding: 3px 8px; font-size: max(1
   .vs img { width: 34cqw; }
   #pauseBtn { top: max(8px, env(safe-area-inset-top)); }
 }
+.screen > * { flex-shrink: 0; }
