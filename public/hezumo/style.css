@@ -36,8 +36,13 @@ button { font: inherit; }
 .p1 { color: #ff8d7c; } .p2 { color: #8db8ff; }
 .banzuke { display: flex; flex-direction: column; gap: 2px; width: min(560px, 100%); }
 .bz { display: flex; justify-content: space-between; padding: 2px 10px; background: #fff1; font-size: max(13px, 2.6cqmin); }
+button.bz { width: 100%; border: 0; color: var(--paper); font: inherit; font-size: max(13px, 2.6cqmin); cursor: pointer; min-height: 34px; align-items: center; }
+button.bz:hover, button.bz:focus-visible { outline: 2px solid var(--gold); }
+.rk { font-size: max(12px, 2.3cqmin); color: var(--red); }
+.rk.cl { color: #a87a10; font-weight: 900; }
 .bz.now { background: var(--red); color: #fff; font-weight: 700; }
-.bz.done { color: #a3917a; text-decoration: line-through; }
+.bz.done { color: #cbb99e; }
+.bz.now.done { color: #fff; }
 .vs { display: flex; align-items: center; justify-content: center; gap: 16px; }
 .vs img { width: min(24cqmin, 150px); aspect-ratio: 1; object-fit: cover; object-position: top; border: 3px solid var(--paper); background: #fff; }
 .big { font-family: var(--mincho); font-weight: 900; font-size: max(30px, 10cqmin); color: #fff; margin: 0; }

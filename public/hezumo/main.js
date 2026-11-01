@@ -9,15 +9,18 @@
   const isTouch = /[?&]touch/.test(location.search) || matchMedia('(pointer: coarse)').matches || (navigator.maxTouchPoints > 0 && /Android|iPhone|iPad|Mobile/.test(navigator.userAgent));
 
   const DEFAULTS = {
-    rank: 0, kim: {}, seenTips: {}, skin: 'normal', tipDone: false, picked: 'imo', losses: 0,
+    ranks: {}, cleared: {}, kim: {}, seenTips: {}, skin: 'normal', tipDone: false, picked: 'imo', losses: 0,
     settings: { bgm: 0.5, se: 0.9, voice: 0.9, shake: 0.6, lowFlash: false, onomatopoeia: true, easy: false, keyA: 'KeyQ', keyB: 'KeyP' },
   };
   let save = load();
   function load() {
     let o = {};
     try { o = JSON.parse(localStorage.getItem(STORE)) || {}; } catch (e) {}
-    return { ...DEFAULTS, ...o, settings: { ...DEFAULTS.settings, ...(o.settings || {}) }, kim: o.kim || {}, seenTips: o.seenTips || {} };
+    return { ...DEFAULTS, ...o, settings: { ...DEFAULTS.settings, ...(o.settings || {}) }, kim: o.kim || {}, seenTips: o.seenTips || {}, ranks: o.ranks || (o.rank ? { [o.picked || 'imo']: o.rank } : {}), cleared: o.cleared || (o.finished ? { [o.picked || 'imo']: true } : {}) };
   }
+  // 番付は力士ごと。屁音の解放だけは全力士で一番上の番付で決める。
+  const rankOf = k => Math.min(save.ranks[k] || 0, BANZUKE.length - 1);
+  const bestRank = () => Math.max(0, ...PLAYABLE.map(rankOf));
   function store() { try { localStorage.setItem(STORE, JSON.stringify(save)); } catch (e) {} }
 
   // 入力 ------------------------------------------------------------
@@ -92,12 +95,11 @@
 
   function title() {
     match = null; sim = null; Snd.syncLoops(false);
-    const r = BANZUKE[Math.min(save.rank, BANZUKE.length - 1)];
     show('title', `<div class="screen title">
       <h1>屁相撲</h1>
       <p class="tag" style="color:#fff">尻を向けた者だけが、相手を飛ばせる。</p>
       <div class="menu">
-        <button class="btn" id="m1" autofocus>ひとりで出世<small>コンピューターと戦って番付を上げる(いまは${r.rank})</small></button>
+        <button class="btn" id="m1" autofocus>ひとりで出世<small>コンピューターと戦って、力士ごとに番付を上げる</small></button>
         ${isTouch ? '' : '<button class="btn" id="m2">となりの人と<small>同じ画面でふたりで戦う</small></button>'}
         <button class="btn" id="m5">遊び方<small>勝ち方、会心、屁返しを知る</small></button>
         <button class="btn" id="m3">決まり手図鑑<small>これまでに出した技と屁の音を見る</small></button>
@@ -105,11 +107,12 @@
       </div></div>`);
     on('#m1', selectSolo); on('#m2', select2); on('#m3', zukan); on('#m5', () => howto(title)); on('#m4', () => settings(title));
   }
-  const card = (k, cls) => `<button class="card ${cls || ''}" data-k="${k}"><img src="assets/img/${k}.jpg" alt=""><div class="nm">${CHARS[k].name}</div><div class="cp">${CHARS[k].copy}</div></button>`;
+  const card = (k, cls, extra) => `<button class="card ${cls || ''}" data-k="${k}"><img src="assets/img/${k}.jpg" alt=""><div class="nm">${CHARS[k].name}</div><div class="cp">${CHARS[k].copy}</div>${extra || ''}</button>`;
+  const rankLabel = k => `<div class="rk ${save.cleared[k] ? 'cl' : ''}">${save.cleared[k] ? '制覇' : 'いま:' + BANZUKE[rankOf(k)].rank}</div>`;
 
   function selectSolo() {
     show('selectSolo', `<div class="screen"><h2>力士をえらぶ</h2>
-      <div class="row">${PLAYABLE.map(k => card(k)).join('')}</div>
+      <div class="row">${PLAYABLE.map(k => card(k, '', rankLabel(k))).join('')}</div>
       <button class="btn" id="back" style="width:auto">もどる</button></div>`, title);
     const cards = [...$ui.querySelectorAll('.card')];
     (cards.find(b => b.dataset.k === save.picked) || cards[0]).focus();
@@ -135,15 +138,26 @@
     [0, 1].forEach(p => $ui.querySelectorAll(`#r${p} .card`).forEach((b, i) => b.classList.toggle(p ? 'sel2' : 'sel', i === picks[p])));
   }
 
-  function banzuke() {
-    const idx = Math.min(save.rank, BANZUKE.length - 1), b = BANZUKE[idx], ch = CHARS[b.char];
-    const list = BANZUKE.map((x, i) => `<div class="bz ${i === idx ? 'now' : i < idx ? 'done' : ''}"><span>${x.rank}</span><span>${i <= idx ? x.oyakata : '???'}</span></div>`).join('');
-    show('banzuke', `<div class="screen"><h2>${b.rank}の取組</h2>
+  // idx を省くと、その力士がいま挑戦中の番付。上がった所までは選び直せる。
+  function banzuke(idx) {
+    const now = rankOf(save.picked);
+    if (idx === undefined) idx = now;
+    const b = BANZUKE[idx], ch = CHARS[b.char];
+    const list = BANZUKE.map((x, i) => {
+      const cls = `bz ${i === idx ? 'now' : ''} ${i < now ? 'done' : ''}`;
+      const row = `<span>${x.rank}</span><span>${i <= now ? x.oyakata + (i < now || save.cleared[save.picked] ? ' ○' : '') : '???'}</span>`;
+      return i <= now ? `<button class="${cls}" data-i="${i}">${row}</button>` : `<div class="${cls}">${row}</div>`;
+    }).join('');
+    show('banzuke', `<div class="screen"><h2>${CHARS[save.picked].name}:${b.rank}の取組</h2>
       <div class="vs"><img src="assets/img/${save.picked}.jpg" alt=""><span class="big">対</span><img src="assets/img/${b.char}.jpg" alt=""></div>
       <p class="tag">${b.oyakata}・${ch.name}:${ch.copy}</p>
       <button class="btn" id="go" autofocus style="width:min(420px,100%)">土俵へ</button>
-      <div class="banzuke">${list}</div></div>`, title);
+      <p class="tag dim">番付表から、勝った相手を選び直せる</p>
+      <div class="banzuke">${list}</div>
+      <button class="btn" id="back" style="width:auto">力士をえらびなおす</button></div>`, selectSolo);
     on('#go', () => startSolo(idx));
+    on('#back', selectSolo);
+    $ui.querySelectorAll('button.bz').forEach(e => e.addEventListener('click', () => banzuke(+e.dataset.i)));
   }
   function startSolo(idx, chanko) {
     const b = BANZUKE[idx];
@@ -282,12 +296,13 @@
       if (win0) {
         save.losses = 0;
         const final = match.rankIdx === BANZUKE.length - 1;
-        const before = save.rank;
-        if (match.rankIdx === save.rank && !final) save.rank++;
-        if (final) save.finished = true;
+        const k = match.keys[0], before = bestRank();
+        const promoted = match.rankIdx === rankOf(k) && !final;
+        if (promoted) save.ranks[k] = rankOf(k) + 1;
+        if (final) save.cleared[k] = true;
         store();
         if (final) return ending();
-        return resultSolo(true, before);
+        return resultSolo(true, before, promoted);
       }
       save.losses++;
       store();
@@ -295,17 +310,17 @@
     }
     return result2p(win0 ? 0 : 1);
   }
-  function resultSolo(win, before) {
+  function resultSolo(win, before, promoted) {
     const b = BANZUKE[match.rankIdx];
     const m = match;
-    const unlocked = win ? SKINS.filter(x => x.unlock === save.rank && before < save.rank) : [];
+    const unlocked = win ? SKINS.filter(x => x.unlock > before && x.unlock <= bestRank()) : [];
     const offer = !win && save.losses >= c.CHANKO_AFTER_LOSSES;
     show('result', `<div class="screen" style="justify-content:center"><p class="big">${win ? '勝ち名乗り' : '黒星'}</p>
-      <p class="tag">${win ? `番付が ${BANZUKE[save.rank].rank} に上がった。` : `${b.oyakata}に敗れた。番付は下がらない。`}</p>
+      <p class="tag">${win ? (promoted ? `${CHARS[m.keys[0]].name}の番付が ${BANZUKE[rankOf(m.keys[0])].rank} に上がった。` : `${b.oyakata}に勝った。番付はそのまま。`) : `${b.oyakata}に敗れた。番付は下がらない。`}</p>
       ${unlocked.map(u => `<p class="tag" style="color:var(--gold)">屁の音「${u.name}」が使えるようになった(設定で変えられる)</p>`).join('')}
       ${offer ? '<p class="tag dim">親方「ちゃんこを食って、体を大きくしてこい」</p>' : ''}
       <div class="menu">
-        <button class="btn" id="next" autofocus>${win ? '次の取組へ' : 'もう一番'}</button>
+        <button class="btn" id="next" autofocus>${win ? '番付表へ' : 'もう一番'}</button>
         ${offer ? '<button class="btn" id="chanko">ちゃんこを食べる<small>次の取組だけ、体が重くなって飛ばされにくい</small></button>' : ''}
         <button class="btn" id="cardBtn">取組カードを保存</button>
         <button class="btn" id="back">タイトルへ</button>
@@ -333,7 +348,7 @@
   function ending() {
     show('result', `<div class="screen" style="justify-content:center;text-align:center"><p class="big">天下無双</p>
       <p class="tag">あなたは世界の大気を土俵の外へ押し出した。<br>翌朝、空気はほんの少し、くさかった。</p>
-      <p class="tag dim">番付を上げきった。これからは好きな親方と何度でも戦える図鑑埋めの旅へ。</p>
+      <p class="tag dim">${CHARS[save.picked].name}は番付を上げきった。番付表から好きな相手と戦えるし、別の力士で出世し直せる。</p>
       <div class="menu"><button class="btn" id="back" autofocus>タイトルへ</button></div></div>`, title);
     on('#back', title);
   }
@@ -385,7 +400,7 @@
       return `<tr><td>${n ? KIMARITE[k].name : '???'}</td><td class="dim">${KIMARITE[k].hint}</td><td>${n ? n + '回' : ''}</td></tr>`;
     }).join('');
     const got = Object.keys(KIMARITE).filter(k => save.kim[k]).length;
-    const skins = SKINS.map(x => `<tr><td>${save.rank >= x.unlock ? x.name : '???'}</td><td class="dim">${x.unlock ? BANZUKE[x.unlock].rank + 'まで上がると使える' : '最初から使える'}</td><td></td></tr>`).join('');
+    const skins = SKINS.map(x => `<tr><td>${bestRank() >= x.unlock ? x.name : '???'}</td><td class="dim">${x.unlock ? 'どれかの力士が' + BANZUKE[x.unlock].rank + 'まで上がると使える' : '最初から使える'}</td><td></td></tr>`).join('');
     show('zukan', `<div class="screen"><h2>決まり手図鑑 ${got} / ${Object.keys(KIMARITE).length}</h2>
       <table class="zk">${rows}</table><h2>屁の音</h2><table class="zk">${skins}</table>
       <button class="btn" id="back" autofocus style="width:auto">もどる</button>
@@ -397,7 +412,7 @@
     const s = save.settings;
     const slider = (id, label) => `<label for="${id}">${label}</label><input id="${id}" type="range" min="0" max="1" step="0.05" value="${s[id]}">`;
     const check = (id, label) => `<label for="${id}">${label}</label><input id="${id}" type="checkbox" ${s[id] ? 'checked' : ''}>`;
-    const skinOpts = SKINS.filter(x => save.rank >= x.unlock).map(x => `<option value="${x.id}" ${save.skin === x.id ? 'selected' : ''}>${x.name}</option>`).join('');
+    const skinOpts = SKINS.filter(x => bestRank() >= x.unlock).map(x => `<option value="${x.id}" ${save.skin === x.id ? 'selected' : ''}>${x.name}</option>`).join('');
     show('settings', `<div class="screen"><h2>設定</h2><div class="set">
       ${slider('bgm', '曲と歓声の大きさ')}${slider('se', '屁と効果音の大きさ')}${slider('voice', '行司の声の大きさ')}${slider('shake', '画面の揺れ(弱いと酔いにくい)')}
       ${check('lowFlash', '画面の光を抑える')}${check('onomatopoeia', '「ブッ!」の文字を出す(音なしで遊ぶとき便利)')}${check('easy', 'やさしい取組(コンピューターが遅くなる)')}
