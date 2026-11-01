@@ -7,6 +7,7 @@ Cloudflare Workers で動くブラウザゲーム置き場。ゲームごとにU
 | `/` | ゲーム一覧 |
 | `/gattai-drive/` | 合体ドライブ（2人オンライン / CPUとひとりで） |
 | `/gattai-drive/ws/<部屋コード>` | 合体ドライブの対戦用WebSocket（Durable Object） |
+| `/hezumo/` | 屁相撲（ひとり用 / PCで2人） |
 
 ## 構成
 
@@ -105,3 +106,13 @@ npm run mock    # wranglerが無くても動く簡易サーバー
 | 加速・最高速・曲がりやすさ | `stepSim()` の「車の物理」 |
 | ランクの境目と名前 | `RANKS` |
 | CPUの性格 | `cpuControl()` |
+
+---
+
+## 屁相撲
+
+尻を向けた者だけが攻撃でき、撃った反動で自分も土俵際へ飛ぶ、1ボタンの相撲。長押しで溜めて、離すと放屁。ひとり用は番付を上げていく「ひとりで出世」、PCでは同じ画面で2人対戦もできる。スマホは縦持ちのひとり用。
+
+調整する数値は `public/hezumo/config.js`、企画と設計は `public/hezumo/DESIGN.md`。勝負の処理は `sim.js` に分けてある。
+
+素材：声 VOICEVOX:青山龍星 / 効果音 Stable Audio Open / 曲 ACE-Step / 絵 ComfyUI（NoobAI-XL）
