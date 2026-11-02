@@ -30,7 +30,8 @@ button { font: inherit; }
 .card:hover, .card:focus-visible { outline: 3px solid var(--gold); }
 .card.sel { border-color: var(--red); }
 .card.sel2 { border-color: var(--blue); }
-.small .card { width: min(22%, 120px); min-width: 72px; }
+.small .card { width: min(18%, 92px); min-width: 72px; }
+.small + .tag { margin: 2px 0; }
 .small .card .cp { display: none; }
 .who { font-weight: 700; font-size: max(14px, 2.8cqmin); width: 100%; text-align: center; }
 .p1 { color: #ff8d7c; } .p2 { color: #8db8ff; }

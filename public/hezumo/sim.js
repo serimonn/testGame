@@ -27,7 +27,7 @@
       x: side * c.START_DIST, y: 0, vx: 0, vy: 0,
       a: 0, spin: (idx === 0 ? 1 : -1) * c.SPIN * ch.spinMul,
       charging: false, c: 0, rumbled: false,
-      recover: 0, firedAgo: 999, overAgo: 999, imo: false,
+      recover: 0, firedAgo: 999, overAgo: 999, imo: false, combo: 0, comboF: -999,
       down: false, out: false,
       lastHit: null, lastBump: null, lastFireF: -999,
     };
@@ -49,11 +49,13 @@
 
   function firePower(f, over) {
     const c = C();
-    let p = (c.POWER_MIN + (1 - c.POWER_MIN) * f.c) * f.ch.power;
+    const min = f.ch.powerMin || c.POWER_MIN;
+    let p = (min + (1 - min) * f.c) * f.ch.power;
+    if (f.ch.comboGain) p *= 1 + f.ch.comboGain * f.combo;
     const crit = !over && f.c >= c.CRIT_C;
     if (crit) p *= c.CRIT_MULT;
     if (over) p *= c.OVER_MULT;
-    if (f.imo) p *= c.IMO_POWER;
+    if (f.imo) p *= f.ch.imoPower || c.IMO_POWER;
     return { p, crit };
   }
 
@@ -61,9 +63,9 @@
     const c = C();
     const { p, crit } = firePower(f, over);
     const ux = Math.cos(f.a), uy = Math.sin(f.a);
-    const rec = c.RECOIL * p * (over ? c.OVER_RECOIL_MULT : 1) / f.mass;
+    const rec = c.RECOIL * p * (over ? c.OVER_RECOIL_MULT : 1) * (f.ch.recoilMul || 1) / f.mass;
     f.vx += ux * rec; f.vy += uy * rec;
-    const range = c.RANGE_MIN + (c.RANGE_MAX - c.RANGE_MIN) * Math.min(1, f.c);
+    const range = (c.RANGE_MIN + (c.RANGE_MAX - c.RANGE_MIN) * Math.min(1, f.c)) * (f.ch.rangeMul || 1);
     const ox = f.x - ux * f.r, oy = f.y - uy * f.r;
     s.waves.push({ owner: f.idx, x: ox, y: oy, dx: -ux, dy: -uy, d: 0, range, p, crit, over, imo: f.imo, done: false });
     s.events.push({ t: 'fire', i: f.idx, x: ox, y: oy, a: f.a + Math.PI, c: f.c, p, crit, over, silent: !!f.ch.silent });
@@ -104,7 +106,7 @@
     if (ang > tol) return;
     const fall = 1 - c.FALLOFF * Math.min(1, dist / w.range);
 
-    if (tgt.firedAgo <= s.parryF) { // 屁返し
+    if (tgt.firedAgo <= s.parryF + (tgt.ch.parryBonus || 0)) { // 屁返し
       const bx = owner.x - tgt.x, by = owner.y - tgt.y, bl = Math.hypot(bx, by) || 1;
       const v = Math.min(c.HIT_V_MAX, c.BLAST * Math.max(w.p, 0.6) * c.PARRY_MULT * fall) / owner.mass;
       owner.vx += bx / bl * v; owner.vy += by / bl * v;
@@ -114,12 +116,14 @@
       return;
     }
     const whiff = tgt.firedAgo < 40 ? c.WHIFF_MULT : 1;
-    const v = Math.min(c.HIT_V_MAX, c.BLAST * w.p * fall * whiff) / tgt.mass;
+    const brace = tgt.charging && tgt.ch.braceMul ? tgt.ch.braceMul : 1;
+    const v = Math.min(c.HIT_V_MAX, c.BLAST * w.p * fall * whiff) * brace / tgt.mass;
+    if (owner.ch.comboGain) { owner.combo = Math.min(owner.ch.comboMax, owner.combo + 1); owner.comboF = s.frame; }
     tgt.vx += tx / dist * v; tgt.vy += ty / dist * v;
     tgt.lastHit = { by: owner.idx, kind: w.crit ? 'kaishin' : w.imo ? 'imo' : 'hohi', f: s.frame };
     const stop = Math.round(c.STOP_HIT_MIN + (c.STOP_HIT_MAX - c.STOP_HIT_MIN) * Math.min(1, w.p / 1.5));
     s.stop = Math.max(s.stop, stop);
-    s.events.push({ t: 'hit', i: tgt.idx, by: owner.idx, x: tgt.x, y: tgt.y, a: Math.atan2(ty, tx), p: w.p, crit: w.crit });
+    s.events.push({ t: 'hit', i: tgt.idx, by: owner.idx, x: tgt.x, y: tgt.y, a: Math.atan2(ty, tx), p: w.p, crit: w.crit, combo: owner.combo });
   }
 
   function physics(s) {
@@ -131,6 +135,7 @@
       f.a += f.spin * (f.charging ? c.CHARGE_SPIN : 1);
       if (f.firedAgo < 999) f.firedAgo++;
       if (f.overAgo < 999) f.overAgo++;
+      if (f.combo && s.frame - f.comboF > c.COMBO_WINDOW_F) f.combo = 0;
     }
     if (s.phase === 'end') return;
     const dx = b.x - a.x, dy = b.y - a.y, d = Math.hypot(dx, dy) || 1, min = a.r + b.r;
@@ -164,7 +169,7 @@
     if (!s.imo) return;
     if (Math.hypot(s.imo.x, s.imo.y) > s.R - 8) { s.imo = null; return; }
     for (const f of s.f) {
-      if (Math.hypot(f.x - s.imo.x, f.y - s.imo.y) < f.r + 14) {
+      if (Math.hypot(f.x - s.imo.x, f.y - s.imo.y) < f.r + 14 + (f.ch.imoReach || 0)) {
         f.imo = true;
         s.events.push({ t: 'imo', i: f.idx, x: s.imo.x, y: s.imo.y });
         s.imo = null;

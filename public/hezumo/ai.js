@@ -29,7 +29,7 @@
       if (w.owner === i) continue;
       const dist = Math.hypot(me.x - w.x, me.y - w.y) - me.r;
       const eta = (dist - w.d) / c.WAVE_SPEED;
-      if (eta <= c.PARRY_F - 1 && eta > 0 && !b.seenWave.has(w)) {
+      if (eta <= c.PARRY_F + (me.ch.parryBonus || 0) - 1 && eta > 0 && !b.seenWave.has(w)) {
         b.seenWave.add(w);
         if (b.rng() < b.p.parry) {
           if (me.charging) return false; // 離して撃つ

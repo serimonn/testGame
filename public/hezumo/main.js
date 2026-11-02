@@ -128,8 +128,10 @@
     show('select2', `<div class="screen"><h2>ふたりの力士</h2>
       <div class="who p1">▲ひとりめ ${keyName(s.keyA)}キーか、札を押して変える。取組では左半分を押す</div>
       <div class="row small" id="r0">${PLAYABLE.map(k => card(k)).join('')}</div>
+      <p class="tag" id="cp0"></p>
       <div class="who p2">◆ふたりめ ${keyName(s.keyB)}キーか、札を押して変える。取組では右半分を押す</div>
       <div class="row small" id="r1">${PLAYABLE.map(k => card(k)).join('')}</div>
+      <p class="tag" id="cp1"></p>
       <div class="row"><button class="btn" id="go" autofocus style="width:auto">取組をはじめる</button><button class="btn" id="back" style="width:auto">もどる</button></div></div>`, title);
     [0, 1].forEach(p => $ui.querySelectorAll(`#r${p} .card`).forEach((b, i) => b.addEventListener('click', () => { picks[p] = i; markPicks(); })));
     on('#go', () => { startMatch({ mode: '2p', keys: [PLAYABLE[picks[0]], PLAYABLE[picks[1]]], need: c.WINS_2P }); });
@@ -139,6 +141,7 @@
   function cyclePick(p) { picks[p] = (picks[p] + 1) % PLAYABLE.length; markPicks(); Snd.play('ui', { vol: 0.6, dur: 0.2 }); }
   function markPicks() {
     [0, 1].forEach(p => $ui.querySelectorAll(`#r${p} .card`).forEach((b, i) => b.classList.toggle(p ? 'sel2' : 'sel', i === picks[p])));
+    [0, 1].forEach(p => { const e = $ui.querySelector('#cp' + p), ch = CHARS[PLAYABLE[picks[p]]]; if (e) e.textContent = `${ch.name}:${ch.copy}`; });
   }
 
   // idx を省くと、その力士がいま挑戦中の番付。上がった所までは選び直せる。
@@ -450,13 +453,17 @@
       <div class="row"><button class="btn" id="share" style="width:auto">招待リンクを送る</button></div>
       <p class="tag dim" id="url"></p>
       <div class="row small">${PLAYABLE.map(k => card(k, k === save.picked ? 'sel' : '')).join('')}</div>
+      <p class="tag" id="cp"></p>
       <button class="btn" id="rdy" autofocus style="width:min(420px,100%)">準備OK</button>
       <button class="btn" id="back" style="width:auto">部屋を出る</button></div>`, title);
     $ui.querySelectorAll('.card').forEach(b => b.addEventListener('click', () => {
       save.picked = b.dataset.k; store();
       $ui.querySelectorAll('.card').forEach(x => x.classList.toggle('sel', x === b));
       Net.send({ t: 'pick', k: save.picked });
+      showCopy();
     }));
+    const showCopy = () => { const ch = CHARS[save.picked]; if (ch) $ui.querySelector('#cp').textContent = `${ch.name}:${ch.copy}`; };
+    showCopy();
     on('#share', async () => {
       const url = inviteUrl();
       try {

@@ -55,6 +55,7 @@
         this.burst(e.x, e.y, e.a, e.crit ? 16 : 8);
         this.addShake(e.p * 10);
         if (e.crit) { this.pop('会心!', e.x, e.y - 50, 48, '#ffe14d'); this.doFlash(0.6); }
+        else if (e.combo > 1) this.pop(e.combo + '連!', e.x, e.y - 44, 30 + e.combo * 6, '#ffb04d');
       } else if (e.t === 'parry') {
         this.burst(e.x, e.y, 0, 20);
         this.parts.push({ k: 'ring', x: e.x, y: e.y, r: 20, grow: 16, life: 18, age: 0, col: '#9ff' });

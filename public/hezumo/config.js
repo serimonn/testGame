@@ -25,6 +25,8 @@
     RECOVER_F: 20, OVER_RECOVER_F: 45,
     // 屁返し
     PARRY_F: 9, PARRY_MULT: 1, WHIFF_MULT: 1.25,
+    // 連続で当てたと数える間隔
+    COMBO_WINDOW_F: 75,
     // 芋
     IMO_EVERY_F: 360, IMO_R_RATE: 0.8, IMO_POWER: 1.3, IMO_CHARGE: 1.4,
     // 止め(F)
@@ -51,10 +53,13 @@
 
   // 力士。一言で言える性能にする。
   root.CHARS = {
-    imo:   { name: '芋ノ海', copy: '溜めが速いが、暴発も早い', mass: 1, r: 32, chargeMul: 0.72, power: 1, spinMul: 1, recoverMul: 1, color: '#c9843e' },
-    omori: { name: '重錘山', copy: '飛ばされにくいが、回りが遅い', mass: 1.22, r: 40, chargeMul: 1.05, power: 1, spinMul: 0.7, recoverMul: 1.1, color: '#8d6b4c' },
-    suka:  { name: '透花',   copy: '音も予兆もない。ただし弱い', mass: 0.9, r: 28, chargeMul: 1, power: 0.85, spinMul: 1.1, recoverMul: 1, color: '#d9b49a', silent: true },
-    ren:   { name: '連発丸', copy: '小さい屁を連射。一発は軽い', mass: 0.85, r: 28, chargeMul: 0.7, power: 0.72, spinMul: 1.2, recoverMul: 0.2, color: '#e0a878' },
+    // 固有の仕様 imoPower:芋の威力, imoReach:芋を拾う距離の追加, braceMul:溜め中に受ける力,
+    // recoilMul:反動の倍率, parryBonus:屁返しの受付の追加F, powerMin:溜めなしの威力, rangeMul:射程の倍率,
+    // comboGain:連続で当てた1回ごとの威力増, comboMax:その上限
+    imo:   { name: '芋ノ海', copy: '溜めが爆速で暴発も早い。芋を食うと化ける', mass: 1, r: 32, chargeMul: 0.55, power: 1, spinMul: 1, recoverMul: 1, color: '#c9843e', imoPower: 1.8, imoReach: 50 },
+    omori: { name: '重錘山', copy: '溜めている間は動かない山。回りと戻りは遅い', mass: 1.2, r: 46, chargeMul: 1.4, power: 0.95, spinMul: 0.5, recoverMul: 1.5, color: '#8d6b4c', braceMul: 0.6 },
+    suka:  { name: '透花',   copy: '音なし、反動なし。屁返しの名人だが力は弱い', mass: 0.9, r: 28, chargeMul: 1, power: 0.8, spinMul: 1.1, recoverMul: 1, color: '#d9b49a', silent: true, recoilMul: 0.35, parryBonus: 12 },
+    ren:   { name: '連発丸', copy: '溜めずに連射。当て続けるほど強くなる', mass: 0.85, r: 27, chargeMul: 0.75, power: 0.9, spinMul: 1.25, recoverMul: 0.15, color: '#e0a878', powerMin: 0.6, rangeMul: 1.8, comboGain: 0.2, comboMax: 4 },
     taiki: { name: '大気',   copy: '地球を覆うガス。風を吹かせる', mass: 1.9, r: 54, chargeMul: 1, power: 1.15, spinMul: 0.6, recoverMul: 1.2, color: '#7fb8c9', wind: { every: 300, len: 70, accel: 190 / 60 } },
   };
   root.PLAYABLE = ['imo', 'omori', 'suka', 'ren'];
@@ -65,12 +70,12 @@
   root.BANZUKE = [
     { rank: '序ノ口', char: 'omori', oyakata: '棒立ちの新弟子', ai: { react: 40, aimErr: 0.9,  parry: 0,    care: 0.1, rescue: 0,    minC: 0.1, maxC: 0.4,  slip: 0.1,  idle: 110 } },
     { rank: '序二段', char: 'imo',   oyakata: '芋の食べすぎ',   ai: { react: 32, aimErr: 0.7,  parry: 0,    care: 0.3, rescue: 0.1,  minC: 0.3, maxC: 0.85, slip: 0.35, idle: 80 } },
-    { rank: '三段目', char: 'ren',   oyakata: '止まらない男',   ai: { react: 26, aimErr: 0.55, parry: 0.05, care: 0.4, rescue: 0.3,  minC: 0.1, maxC: 0.4,  slip: 0.05, idle: 15 } },
+    { rank: '三段目', char: 'ren',   oyakata: '止まらない男',   ai: { react: 30, aimErr: 0.7, parry: 0.05, care: 0.4, rescue: 0.3,  minC: 0.1, maxC: 0.4,  slip: 0.05, idle: 30 } },
     { rank: '幕下',   char: 'suka',  oyakata: '静かなる刺客',   ai: { react: 22, aimErr: 0.42,  parry: 0.1,  care: 0.6, rescue: 0.5,  minC: 0.4, maxC: 0.85, slip: 0.05, idle: 30 } },
     { rank: '十両',   char: 'omori', oyakata: '動かざる壁',     ai: { react: 18, aimErr: 0.3, parry: 0.15, care: 0.7, rescue: 0.7,  minC: 0.5, maxC: 0.9,  slip: 0.05, idle: 25 } },
     { rank: '幕内',   char: 'imo',   oyakata: '会心の芋',       ai: { react: 12, aimErr: 0.18, parry: 0.25, care: 0.8, rescue: 0.85, minC: 0.86, maxC: 0.97, slip: 0.08, idle: 20 } },
     { rank: '横綱',   char: 'ren',   oyakata: '屁の求道者',     ai: { react: 10, aimErr: 0.13, parry: 0.4,  care: 0.9, rescue: 0.95, minC: 0.2, maxC: 0.9,  slip: 0.02, idle: 8 } },
-    { rank: '千秋楽', char: 'taiki', oyakata: '世界の大気',     ai: { react: 12, aimErr: 0.16, parry: 0.2,  care: 0.9, rescue: 0.95, minC: 0.5, maxC: 0.95, slip: 0.02, idle: 20 } },
+    { rank: '千秋楽', char: 'taiki', oyakata: '世界の大気',     ai: { react: 16, aimErr: 0.24, parry: 0.2,  care: 0.9, rescue: 0.95, minC: 0.5, maxC: 0.95, slip: 0.02, idle: 24 } },
   ];
 
   root.KIMARITE = {
