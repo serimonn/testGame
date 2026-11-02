@@ -21,7 +21,8 @@
     b.hist.push({ x: op.x, y: op.y });
     if (b.hist.length > 60) b.hist.shift();
     if (s.phase !== 'fight') return false;
-    if (b.tap > 0) { b.tap--; return true; }
+    // 屁返しの小さな一発:押した次のコマで離す
+    if (b.tap > 0) { b.tap--; return false; }
     if (me.recover > 0) return false;
 
     // 屁返し:飛んでくる波に一度だけ判定する
@@ -31,7 +32,8 @@
       const eta = (dist - w.d) / c.WAVE_SPEED;
       if (eta <= c.PARRY_F + (me.ch.parryBonus || 0) - 1 && eta > 0 && !b.seenWave.has(w)) {
         b.seenWave.add(w);
-        if (b.rng() < b.p.parry) {
+        // 人と同じく、小さな屁にはいちいち反応しない。強い屁ほど屁返しを狙う
+        if (b.rng() < b.p.parry * Math.min(1, Math.max(0.3, w.p / 0.8))) {
           if (me.charging) return false; // 離して撃つ
           b.tap = 1;
           return true;

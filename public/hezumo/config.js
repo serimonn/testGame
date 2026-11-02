@@ -25,6 +25,8 @@
     RECOVER_F: 20, OVER_RECOVER_F: 45,
     // 屁返し
     PARRY_F: 9, PARRY_MULT: 1, WHIFF_MULT: 1.25,
+    // 屁返しで跳ね返す力の下限。小さな屁を返しても小さくしか飛ばない
+    PARRY_P_MIN: 0.6,
     // 連続で当てたと数える間隔
     COMBO_WINDOW_F: 75,
     // 芋
@@ -56,10 +58,10 @@
     // 固有の仕様 imoPower:芋の威力, imoReach:芋を拾う距離の追加, braceMul:溜め中に受ける力,
     // recoilFixed:溜めに関係なく一定の反動, parryBonus:屁返しの受付の追加F, noParry:屁返しができない, gas:続けて撃てる数, gasRegenF:1発分たまるF, powerMin:溜めなしの威力, rangeMul:射程の倍率,
     // comboGain:連続で当てた1回ごとの威力増, comboMax:その上限
-    imo:   { name: '芋ノ海', copy: '溜めが爆速で暴発も早い。芋を食うと化ける', mass: 1, r: 32, chargeMul: 0.55, power: 1, spinMul: 1, recoverMul: 1, color: '#c9843e', imoPower: 1.8, imoReach: 50 },
+    imo:   { name: '芋ノ海', copy: '溜めが爆速で暴発も早い。芋を食うと化ける', mass: 1, r: 32, chargeMul: 0.55, power: 0.95, spinMul: 1, recoverMul: 1, color: '#c9843e', imoPower: 1.6, imoReach: 50 },
     omori: { name: '重錘山', copy: '溜めている間は動かない山。回りと戻りは遅い', mass: 1.2, r: 46, chargeMul: 1.4, power: 0.95, spinMul: 0.5, recoverMul: 1.5, color: '#8d6b4c', braceMul: 0.6 },
     suka:  { name: '透花',   copy: '音なしで滑る屁返しの名人。力は弱い', mass: 0.9, r: 28, chargeMul: 1, power: 0.85, spinMul: 1.1, recoverMul: 1, color: '#d9b49a', silent: true, recoilFixed: 0.8, parryBonus: 12 },
-    ren:   { name: '連発丸', copy: '5連射で当て続けると強い。屁返しなし', mass: 0.85, r: 27, chargeMul: 0.75, power: 0.9, spinMul: 1.25, recoverMul: 0.15, color: '#e0a878', powerMin: 0.6, rangeMul: 1.8, comboGain: 0.15, comboMax: 3, noParry: true, gas: 5, gasRegenF: 24 },
+    ren:   { name: '連発丸', copy: '5連射で当て続けると強い。屁返しなし', mass: 0.9, r: 27, chargeMul: 0.75, power: 0.9, spinMul: 1.25, recoverMul: 0.15, color: '#e0a878', powerMin: 0.75, rangeMul: 1.8, comboGain: 0.15, comboMax: 3, noParry: true, gas: 5, gasRegenF: 24 },
     taiki: { name: '大気',   copy: '地球を覆うガス。風で相手を流すが、動きは鈍い', mass: 1.25, r: 54, chargeMul: 1.3, power: 0.95, spinMul: 0.5, recoverMul: 1.5, color: '#7fb8c9', wind: { every: 300, len: 60, accel: 2.2 } },
   };
   root.PLAYABLE = ['imo', 'omori', 'suka', 'ren'];
