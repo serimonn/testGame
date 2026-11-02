@@ -59,11 +59,17 @@
     return { p, crit };
   }
 
+  // 反動の速さ。recoilFixed の力士は溜めに関係なく同じだけ進む
+  function recoilSpeed(f, p, over) {
+    const c = C();
+    return c.RECOIL * (f.ch.recoilFixed || p) * (over ? c.OVER_RECOIL_MULT : 1) / f.mass;
+  }
+
   function fire(s, f, over) {
     const c = C();
     const { p, crit } = firePower(f, over);
     const ux = Math.cos(f.a), uy = Math.sin(f.a);
-    const rec = c.RECOIL * p * (over ? c.OVER_RECOIL_MULT : 1) * (f.ch.recoilMul || 1) / f.mass;
+    const rec = recoilSpeed(f, p, over);
     f.vx += ux * rec; f.vy += uy * rec;
     const range = (c.RANGE_MIN + (c.RANGE_MAX - c.RANGE_MIN) * Math.min(1, f.c)) * (f.ch.rangeMul || 1);
     const ox = f.x - ux * f.r, oy = f.y - uy * f.r;
@@ -250,7 +256,7 @@
   function recoilDist(f) {
     const c = C();
     const { p } = firePower(f, false);
-    return c.RECOIL * p / f.mass / 60 / (1 - c.FRICTION);
+    return recoilSpeed(f, p, false) / 60 / (1 - c.FRICTION);
   }
 
   root.Sim = { createBout, step, firePower, recoilDist, angDiff, kimarite };
