@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+<meta name="theme-color" content="#1e1b24">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<title>エレベーター係の地獄</title>
+<link rel="stylesheet" href="style.css?v=8">
+</head>
+<body>
+<div id="stage">
+  <canvas id="game"></canvas>
+  <div id="pad" class="hidden">
+    <button id="btnOpen" class="eb" aria-label="開"><span class="ic">◀|▶</span><span class="kj">開</span></button>
+    <button id="btnClose" class="eb" aria-label="閉"><span class="ic">▶|◀</span><span class="kj">閉</span></button>
+  </div>
+  <button id="pauseBtn" class="hidden" aria-label="一時停止">Ⅱ</button>
+  <div id="ui"></div>
+</div>
+<script src="config.js?v=8"></script>
+<script src="sim.js?v=8"></script>
+<script src="audio.js?v=8"></script>
+<script src="render.js?v=8"></script>
+<script src="main.js?v=8"></script>
+</body>
+</html>

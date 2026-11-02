@@ -8,6 +8,7 @@ Cloudflare Workers で動くブラウザゲーム置き場。ゲームごとにU
 | `/gattai-drive/` | 合体ドライブ（2人オンライン / CPUとひとりで） |
 | `/gattai-drive/ws/<部屋コード>` | 合体ドライブの対戦用WebSocket（Durable Object） |
 | `/hezumo/` | 屁相撲（ひとり用 / PCで2人） |
+| `/elevator/` | エレベーター係の地獄（ひとり用、スマホ縦） |
 
 ## 構成
 
