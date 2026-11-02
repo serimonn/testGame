@@ -27,7 +27,7 @@
       x: side * c.START_DIST, y: 0, vx: 0, vy: 0,
       a: 0, spin: (idx === 0 ? 1 : -1) * c.SPIN * ch.spinMul,
       charging: false, c: 0, rumbled: false,
-      recover: 0, firedAgo: 999, overAgo: 999, imo: false, combo: 0, comboF: -999,
+      recover: 0, gas: ch.gas || 0, firedAgo: 999, overAgo: 999, imo: false, combo: 0, comboF: -999,
       down: false, out: false,
       lastHit: null, lastBump: null, lastFireF: -999,
     };
@@ -80,13 +80,17 @@
     if (over) f.overAgo = 0;
     f.recover = Math.round((over ? c.OVER_RECOVER_F : c.RECOVER_F) * f.ch.recoverMul);
     f.charging = false; f.c = 0; f.rumbled = false; f.imo = false;
+    if (f.ch.gas) f.gas = Math.max(0, f.gas - 1);
   }
 
   function updateInput(s, f, down) {
     const c = C();
+    const pressed = down && !f.down;
     f.down = down;
     if (f.recover > 0) { f.recover--; return; }
     if (!f.charging) {
+      // ガス切れ。押した反応だけ返す
+      if (f.ch.gas && f.gas < 1) { if (pressed) s.events.push({ t: 'empty', i: f.idx, x: f.x, y: f.y }); return; }
       if (down) { f.charging = true; f.c = 0; s.events.push({ t: 'charge', i: f.idx, silent: !!f.ch.silent }); }
       return;
     }
@@ -112,7 +116,7 @@
     if (ang > tol) return;
     const fall = 1 - c.FALLOFF * Math.min(1, dist / w.range);
 
-    if (tgt.firedAgo <= s.parryF + (tgt.ch.parryBonus || 0)) { // 屁返し
+    if (!tgt.ch.noParry && tgt.firedAgo <= s.parryF + (tgt.ch.parryBonus || 0)) { // 屁返し
       const bx = owner.x - tgt.x, by = owner.y - tgt.y, bl = Math.hypot(bx, by) || 1;
       const v = Math.min(c.HIT_V_MAX, c.BLAST * Math.max(w.p, 0.6) * c.PARRY_MULT * fall) / owner.mass;
       owner.vx += bx / bl * v; owner.vy += by / bl * v;
@@ -121,7 +125,7 @@
       s.events.push({ t: 'parry', i: tgt.idx, x: tgt.x, y: tgt.y, tx: owner.x, ty: owner.y });
       return;
     }
-    const whiff = tgt.firedAgo < 40 ? c.WHIFF_MULT : 1;
+    const whiff = tgt.firedAgo < 40 && !tgt.ch.noParry ? c.WHIFF_MULT : 1;
     const brace = tgt.charging && tgt.ch.braceMul ? tgt.ch.braceMul : 1;
     const v = Math.min(c.HIT_V_MAX, c.BLAST * w.p * fall * whiff) * brace / tgt.mass;
     if (owner.ch.comboGain) { owner.combo = Math.min(owner.ch.comboMax, owner.combo + 1); owner.comboF = s.frame; }
@@ -142,6 +146,7 @@
       if (f.firedAgo < 999) f.firedAgo++;
       if (f.overAgo < 999) f.overAgo++;
       if (f.combo && s.frame - f.comboF > c.COMBO_WINDOW_F) f.combo = 0;
+      if (f.ch.gas && !f.charging) f.gas = Math.min(f.ch.gas, f.gas + 1 / f.ch.gasRegenF);
     }
     if (s.phase === 'end') return;
     const dx = b.x - a.x, dy = b.y - a.y, d = Math.hypot(dx, dy) || 1, min = a.r + b.r;

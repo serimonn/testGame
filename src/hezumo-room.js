@@ -200,7 +200,7 @@ export class HezumoRoom extends DurableObject {
   send(s, events) {
     this.broadcast(JSON.stringify({
       t: "s", n: this.game.n, fr: s.frame, ph: s.phase, pf: s.phaseF, st: s.stop, R: r1(s.R),
-      f: s.f.map((f) => [r1(f.x), r1(f.y), r3(f.a), r3(f.c), (f.charging ? 1 : 0) | (f.imo ? 2 : 0) | (f.out ? 4 : 0), f.recover]),
+      f: s.f.map((f) => [r1(f.x), r1(f.y), r3(f.a), r3(f.c), (f.charging ? 1 : 0) | (f.imo ? 2 : 0) | (f.out ? 4 : 0), f.recover, r1(f.gas)]),
       w: s.waves.map((w) => [w.owner, r1(w.x), r1(w.y), r3(w.dx), r3(w.dy), r1(w.d), w.crit ? 1 : 0]),
       i: s.imo ? [r1(s.imo.x), r1(s.imo.y)] : null,
       g: s.gust ? [r3(s.gust.dx), r3(s.gust.dy)] : null,

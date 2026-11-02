@@ -56,6 +56,8 @@
         this.addShake(e.p * 10);
         if (e.crit) { this.pop('会心!', e.x, e.y - 50, 48, '#ffe14d'); this.doFlash(0.6); }
         else if (e.combo > 1) this.pop(e.combo + '連!', e.x, e.y - 44, 30 + e.combo * 6, '#ffb04d');
+      } else if (e.t === 'empty') {
+        this.pop('ガス切れ…', e.x, e.y - 44, 22, '#bbb');
       } else if (e.t === 'parry') {
         this.burst(e.x, e.y, 0, 20);
         this.parts.push({ k: 'ring', x: e.x, y: e.y, r: 20, grow: 16, life: 18, age: 0, col: '#9ff' });
@@ -341,6 +343,18 @@
         const fw = left ? gw * f.c : gw * f.c;
         ctx.fillRect(gx, gy, fw, gh);
         ctx.fillStyle = '#fff'; ctx.fillRect(gx + gw * c.CRIT_C - 1, gy - 3, 2, gh + 6);
+        // 連射の残り。横持ちはゲージの内側の横、縦持ちはゲージの下に玉で並べる
+        if (f.ch.gas) {
+          const pr = portrait && left ? 9 : 6, step = pr * 2.6;
+          for (let i = 0; i < f.ch.gas; i++) {
+            const px = portrait ? (left ? gx + pr + i * step : gx + gw - pr - i * step) : left ? gx + gw + 14 + pr + i * step : gx - 14 - pr - i * step;
+            const py = portrait ? gy + gh + pr + 5 : gy + gh / 2;
+            const fill = Math.max(0, Math.min(1, f.gas - i));
+            ctx.beginPath(); ctx.arc(px, py, pr, 0, 6.3); ctx.fillStyle = '#000b'; ctx.fill();
+            if (fill > 0) { ctx.beginPath(); ctx.arc(px, py, pr * (fill < 1 ? 0.55 * fill : 1), 0, 6.3); ctx.fillStyle = fill < 1 ? '#a08a3a' : '#ffb04d'; ctx.fill(); }
+            ctx.strokeStyle = '#fff'; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.arc(px, py, pr, 0, 6.3); ctx.stroke();
+          }
+        }
         ctx.font = `700 ${portrait ? 18 : 14}px ${GOTHIC}`; ctx.textAlign = left ? 'left' : 'right'; ctx.lineWidth = 3; ctx.strokeStyle = '#000'; ctx.fillStyle = '#fff';
         const hint = portrait && !left ? null : m.hints[f.idx];
         if (hint) { ctx.strokeText(hint, left ? gx : gx + gw, gy - 13); ctx.fillText(hint, left ? gx : gx + gw, gy - 13); }

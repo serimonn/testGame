@@ -25,7 +25,7 @@
     if (me.recover > 0) return false;
 
     // 屁返し:飛んでくる波に一度だけ判定する
-    for (const w of s.waves) {
+    for (const w of me.ch.noParry ? [] : s.waves) {
       if (w.owner === i) continue;
       const dist = Math.hypot(me.x - w.x, me.y - w.y) - me.r;
       const eta = (dist - w.d) / c.WAVE_SPEED;

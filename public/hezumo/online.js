@@ -161,7 +161,7 @@
         f.a = A[2] + root.Sim.angDiff(B[2], A[2]) * t + (this.slot ? Math.PI : 0);
         f.c = A[3] + (B[3] - A[3]) * t;
         f.charging = !!(B[4] & 1); f.imo = !!(B[4] & 2); f.out = !!(B[4] & 4);
-        f.recover = B[5];
+        f.recover = B[5]; f.gas = B[6] || 0;
       }
       s.waves = b.w.map(w => ({
         owner: this.slot ? 1 - w[0] : w[0], x: w[1] * flip, y: w[2] * flip, dx: w[3] * flip, dy: w[4] * flip,
@@ -177,7 +177,7 @@
       const rate = 1 / (c.CHARGE_F * f.ch.chargeMul) * (f.imo ? c.IMO_CHARGE : 1);
       if (!this.held) { if (s.phase === 'fight') { f.charging = false; f.c = 0; } }
       else if (f.charging) f.c = Math.min(1, f.c + rate * lead);
-      else if (s.phase === 'fight' && f.recover === 0) { f.charging = true; f.c = Math.min(1, rate * this.pressF); }
+      else if (s.phase === 'fight' && f.recover === 0 && !(f.ch.gas && f.gas < 1)) { f.charging = true; f.c = Math.min(1, rate * this.pressF); }
       f.a += f.spin * (f.charging ? c.CHARGE_SPIN : 1) * lead;
     },
   };
