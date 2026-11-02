@@ -60,9 +60,12 @@
     omori: { name: '重錘山', copy: '溜めている間は動かない山。回りと戻りは遅い', mass: 1.2, r: 46, chargeMul: 1.4, power: 0.95, spinMul: 0.5, recoverMul: 1.5, color: '#8d6b4c', braceMul: 0.6 },
     suka:  { name: '透花',   copy: '音なし、反動なし。屁返しの名人だが力は弱い', mass: 0.9, r: 28, chargeMul: 1, power: 0.8, spinMul: 1.1, recoverMul: 1, color: '#d9b49a', silent: true, recoilMul: 0.35, parryBonus: 12 },
     ren:   { name: '連発丸', copy: '溜めずに連射。当て続けるほど強くなる', mass: 0.85, r: 27, chargeMul: 0.75, power: 0.9, spinMul: 1.25, recoverMul: 0.15, color: '#e0a878', powerMin: 0.6, rangeMul: 1.8, comboGain: 0.2, comboMax: 4 },
-    taiki: { name: '大気',   copy: '地球を覆うガス。風を吹かせる', mass: 1.9, r: 54, chargeMul: 1, power: 1.15, spinMul: 0.6, recoverMul: 1.2, color: '#7fb8c9', wind: { every: 300, len: 70, accel: 190 / 60 } },
+    taiki: { name: '大気',   copy: '地球を覆うガス。風で相手を流すが、動きは鈍い', mass: 1.25, r: 54, chargeMul: 1.3, power: 0.95, spinMul: 0.5, recoverMul: 1.5, color: '#7fb8c9', wind: { every: 300, len: 60, accel: 2.2 } },
   };
   root.PLAYABLE = ['imo', 'omori', 'suka', 'ren'];
+  // PLAYABLE を全員制覇すると使える力士。千秋楽でCPUが使うときだけ体重を掛ける
+  root.SECRET = 'taiki';
+  root.BOSS_MASS_MUL = 1.5;
 
   // 番付。AI の癖を段ごとに足す。
   // react:相手を見る遅れ, aimErr:狙いのズレ, parry:屁返し率, care:反動の自滅を避ける率,

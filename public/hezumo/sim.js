@@ -182,14 +182,15 @@
     const boss = s.f.find(f => f.ch.wind);
     if (!boss) return;
     const w = boss.ch.wind;
-    const other = s.f[1 - boss.idx];
     if (!s.gust && s.phaseF > 0 && s.phaseF % w.every === 0) {
       const ang = rand(s) * TAU;
       s.gust = { dx: Math.cos(ang), dy: Math.sin(ang), left: w.len };
       s.events.push({ t: 'gust', dx: s.gust.dx, dy: s.gust.dy });
     }
     if (s.gust) {
-      other.vx += s.gust.dx * w.accel; other.vy += s.gust.dy * w.accel;
+      // 同じ力士どうしなら両方が流される
+      const both = s.f[1 - boss.idx].ch.wind;
+      for (const f of s.f) if (both || f !== boss) { f.vx += s.gust.dx * w.accel; f.vy += s.gust.dy * w.accel; }
       if (--s.gust.left <= 0) s.gust = null;
     }
   }

@@ -7,7 +7,7 @@ import "../public/hezumo/sim.js";
   入力は "1"（押した）と "0"（離した）だけ。状態を毎秒20回、両者へ送る。
   取組中だけタイマーが動く。待っている間は眠るので実行時間を使わない。
 */
-const { CFG: c, Sim, PLAYABLE } = globalThis;
+const { CFG: c, Sim, PLAYABLE, SECRET } = globalThis;
 const NET = c.NET, STEP = 1000 / 60;
 const r1 = (v) => Math.round(v * 10) / 10;
 const r3 = (v) => Math.round(v * 1000) / 1000;
@@ -74,7 +74,7 @@ export class HezumoRoom extends DurableObject {
     }
     let m;
     try { m = JSON.parse(message); } catch { return; }
-    if (m.t === "pick" && PLAYABLE.includes(m.k)) {
+    if (m.t === "pick" && (PLAYABLE.includes(m.k) || m.k === SECRET)) {
       ws.serializeAttachment({ ...att, key: m.k });
       this.broadcastLobby();
     } else if (m.t === "ready" && !this.game) {
