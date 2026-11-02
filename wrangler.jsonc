@@ -8,16 +8,18 @@
     "directory": "./public",
     "binding": "ASSETS",
     "html_handling": "auto-trailing-slash",
-    "run_worker_first": ["/gattai-drive/ws/*", "/hezumo/ws/*"]
+    "run_worker_first": ["/gattai-drive/ws/*", "/hezumo/ws/*", "/monosashi/ws/*"]
   },
   "durable_objects": {
     "bindings": [
       { "name": "GATTAI_ROOM", "class_name": "GattaiRoom" },
-      { "name": "HEZUMO_ROOM", "class_name": "HezumoRoom" }
+      { "name": "HEZUMO_ROOM", "class_name": "HezumoRoom" },
+      { "name": "MONOSASHI_ROOM", "class_name": "MonosashiRoom" }
     ]
   },
   "migrations": [
     { "tag": "v1", "new_sqlite_classes": ["GattaiRoom"] },
-    { "tag": "v2", "new_sqlite_classes": ["HezumoRoom"] }
+    { "tag": "v2", "new_sqlite_classes": ["HezumoRoom"] },
+    { "tag": "v3", "new_sqlite_classes": ["MonosashiRoom"] }
   ]
 }

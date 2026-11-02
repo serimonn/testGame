@@ -9,6 +9,8 @@ Cloudflare Workers で動くブラウザゲーム置き場。ゲームごとにU
 | `/gattai-drive/ws/<部屋コード>` | 合体ドライブの対戦用WebSocket（Durable Object） |
 | `/hezumo/` | 屁相撲（ひとり用 / PCで2人） |
 | `/elevator/` | エレベーター係の地獄（ひとり用、スマホ縦） |
+| `/monosashi/` | 配信者の物差し（配信者と視聴者1〜10人 / CPUと練習） |
+| `/monosashi/ws/(h\|p)/<参加コード>` | 配信者の物差しのWebSocket（Durable Object、配信者ごとに1つ） |
 
 ## 構成
 
@@ -117,3 +119,13 @@ npm run mock    # wranglerが無くても動く簡易サーバー
 調整する数値は `public/hezumo/config.js`、企画と設計は `public/hezumo/DESIGN.md`。勝負の処理は `sim.js` に分けてある。
 
 素材：声 VOICEVOX:青山龍星 / 効果音 Stable Audio Open / 曲 ACE-Step / 絵 ComfyUI（NoobAI-XL）
+
+---
+
+## 配信者の物差し
+
+配信者がお題（例：コンビニのおでん）を物差し（冷たい〜熱い）のどこに置いたかを、視聴者がスマホで当てる。5ラウンドの平均点で「本日の一番の理解者」が決まり、全員の予想の中央値から配信者との「シンクロ率」が出る。配信者はPCで「操作画面」を開き、配信ソフトには「配信用画面」（`/monosashi/?view=broadcast&c=<参加コード>`、1920×1080）だけを入れる。`/monosashi/?practice=1` でサーバーなしの練習（CPUの視聴者）ができる。
+
+調整する数値は `public/monosashi/config.js`、お題は `topics.js`。試合の進行は `engine.js` で、Durable Object（`src/monosashi-room.js`）と練習モードが同じものを使う。
+
+素材：声 VOICEVOX:春日部つむぎ / 効果音 Stable Audio Open / 曲 ACE-Step / 絵 ComfyUI（NoobAI-XL）

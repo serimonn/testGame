@@ -1,5 +1,6 @@
 import { DurableObject } from "cloudflare:workers";
 export { HezumoRoom } from "./hezumo-room.js";
+export { MonosashiRoom } from "./monosashi-room.js";
 
 /*
   testGame の Worker
@@ -9,6 +10,7 @@ export { HezumoRoom } from "./hezumo-room.js";
   - WebSocket だけ Worker が受ける
       /gattai-drive/ws/<部屋コード>?cid=<端末ごとのID> → Durable Object「GattaiRoom」
       /hezumo/ws/<部屋コード>?cid=<端末ごとのID> → Durable Object「HezumoRoom」
+      /monosashi/ws/(h|p)/<参加コード> → Durable Object「MonosashiRoom」(配信者ごとに1つ)
 */
 
 // 合体ドライブの部屋：1部屋 = 1 Durable Object。2人分のWebSocketをつなぐ中継役だけ。
@@ -103,6 +105,14 @@ export default {
         return new Response("Expected a WebSocket", { status: 426 });
       }
       return env.HEZUMO_ROOM.get(env.HEZUMO_ROOM.idFromName(h[1].toUpperCase())).fetch(request);
+    }
+
+    const mo = url.pathname.match(/^\/monosashi\/ws\/(h|p)\/([A-Z0-9]{5})$/);
+    if (mo) {
+      if (request.headers.get("Upgrade") !== "websocket") {
+        return new Response("Expected a WebSocket", { status: 426 });
+      }
+      return env.MONOSASHI_ROOM.get(env.MONOSASHI_ROOM.idFromName(mo[2])).fetch(request);
     }
 
     return env.ASSETS.fetch(request);
