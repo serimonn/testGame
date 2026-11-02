@@ -1,7 +1,7 @@
 // 音。http なら WebAudio で先頭の無音を飛ばして鳴らす。file:// では Audio 要素で鳴らす。
 (function (root) {
   const SE = ['fart_s', 'fart_m', 'fart_l', 'fart_crit', 'fart_over', 'rumble', 'hit', 'parry', 'imo', 'taiko', 'bump', 'horagai', 'taikoskin', 'ui', 'cheer'];
-  const VOICE = ['hakke', 'nokotta', 'hohi', 'kaishin', 'hekaeshi', 'hara', 'hando', 'imo', 'butsu', 'dohyo', 'torinaoshi'];
+  const VOICE = ['hakke', 'nokotta', 'torinaoshi'];
   const A = {
     ctx: null, buf: {}, html: {}, loops: {}, hidden: false, vol: { bgm: 0.5, se: 0.9, voice: 0.9 }, bgm: null, crowd: null, ready: false,
     load() {

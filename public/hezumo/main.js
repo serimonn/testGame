@@ -27,7 +27,7 @@
   const pressedKeys = new Set(), pointers = new Map();
   function held(i) {
     const s = save.settings;
-    if (match && match.mode === 'solo') {
+    if (match && match.mode !== '2p') {
       return pressedKeys.has(s.keyA) || pressedKeys.has('Space') || pointers.size > 0;
     }
     if (pressedKeys.has(i === 0 ? s.keyA : s.keyB)) return true;
@@ -63,9 +63,10 @@
   addEventListener('keyup', e => pressedKeys.delete(e.code));
   document.addEventListener('visibilitychange', () => {
     Snd.setHidden(document.hidden);
-    if (document.hidden) { pressedKeys.clear(); pointers.clear(); if (screen === 'bout') pause(); }
+    if (document.hidden) { pressedKeys.clear(); pointers.clear(); if (online()) return Net.suspend(); if (screen === 'bout') pause(); }
+    else if (Net.code) Net.resume();
   });
-  addEventListener('blur', () => { pressedKeys.clear(); pointers.clear(); if (screen === 'bout') pause(); });
+  addEventListener('blur', () => { pressedKeys.clear(); pointers.clear(); if (screen === 'bout' && !online()) pause(); });
   canvas.addEventListener('pointerdown', e => {
     Snd.unlock();
     const r = canvas.getBoundingClientRect();
@@ -94,18 +95,20 @@
   const keyName = code => code.replace(/^Key/, '').replace(/^Digit/, '').replace('Space', 'スペース').replace('ShiftLeft', '左Shift').replace('ShiftRight', '右Shift').replace('Enter', 'Enter');
 
   function title() {
+    Net.leave();
     match = null; sim = null; Snd.syncLoops(false);
     show('title', `<div class="screen title">
       <h1>屁相撲</h1>
       <p class="tag" style="color:#fff">尻を向けた者だけが、相手を飛ばせる。</p>
       <div class="menu">
         <button class="btn" id="m1" autofocus>ひとりで出世<small>コンピューターと戦って、力士ごとに番付を上げる</small></button>
+        <button class="btn" id="m6">友だちと対戦<small>招待リンクを送って、離れた相手と戦う</small></button>
         ${isTouch ? '' : '<button class="btn" id="m2">となりの人と<small>同じ画面でふたりで戦う</small></button>'}
         <button class="btn" id="m5">遊び方<small>勝ち方、会心、屁返しを知る</small></button>
         <button class="btn" id="m3">決まり手図鑑<small>これまでに出した技と屁の音を見る</small></button>
         <button class="btn" id="m4">設定<small>${isTouch ? '音量や揺れを変える' : '音量、揺れ、ボタンを変える'}</small></button>
       </div></div>`);
-    on('#m1', selectSolo); on('#m2', select2); on('#m3', zukan); on('#m5', () => howto(title)); on('#m4', () => settings(title));
+    on('#m1', selectSolo); on('#m6', onlineMenu); on('#m2', select2); on('#m3', zukan); on('#m5', () => howto(title)); on('#m4', () => settings(title));
   }
   const card = (k, cls, extra) => `<button class="card ${cls || ''}" data-k="${k}"><img src="assets/img/${k}.jpg" alt=""><div class="nm">${CHARS[k].name}</div><div class="cp">${CHARS[k].copy}</div>${extra || ''}</button>`;
   const rankLabel = k => `<div class="rk ${save.cleared[k] ? 'cl' : ''}">${save.cleared[k] ? '制覇' : 'いま:' + BANZUKE[rankOf(k)].rank}</div>`;
@@ -165,6 +168,7 @@
   }
 
   // 取組 ------------------------------------------------------------
+  const online = () => !!match && match.mode === 'online';
   let match = null, sim = null, brain = null, koF = 0, prevHeld = false, firstHit = false, spoke = false, simSeed = (Date.now() & 0xffff) + 1;
   function startMatch(m) {
     match = { ...m, score: [0, 0], kims: [] };
@@ -235,7 +239,7 @@
   function onEvents() {
     for (const e of sim.events) {
       Render.onEvent(e, sim);
-      if (e.t === 'fire') fartSound(e);
+      if (e.t === 'fire') { if (!e.pred) fartSound(e); }
       else if (e.t === 'hit') { Snd.play('hit', { vol: 0.5 + Math.min(0.5, e.p * 0.4), dur: 0.35 }); firstHit = true; }
       else if (e.t === 'parry') Snd.play('parry', { vol: 1, dur: 0.7 });
       else if (e.t === 'rumble') { if (!e.silent) Snd.play('rumble', { vol: 0.7, dur: 0.8 }); }
@@ -258,13 +262,13 @@
   }
   function view() {
     const s = save.settings;
-    const hints = match.mode === 'solo'
+    const hints = match.mode !== '2p'
       ? [isTouch ? '画面のどこでも長押し' : `${keyName(s.keyA)} か スペース か 画面を長押し`, null]
       : [`${keyName(s.keyA)} か 左半分を長押し`, `${keyName(s.keyB)} か 右半分を長押し`];
     const tip = coachF > 0 ? coach : !save.tipDone && !firstHit ? '長押しで溜める。離すと出る。お尻を相手に向けて!' : null;
     return {
-      labels: match.mode === 'solo' ? ['あなた', 'CPU'] : ['ひとりめ', 'ふたりめ'],
-      score: match.score, winsNeed: match.need, rankText: match.rankText, hints, tip, koF: sim.phase === 'end' ? koF : undefined,
+      labels: match.mode === 'solo' ? ['あなた', 'CPU'] : online() ? ['あなた', '相手'] : ['ひとりめ', 'ふたりめ'],
+      score: match.score, winsNeed: match.need, rankText: online() ? `通信 ${Net.rtt}ms` : match.rankText, hints, tip: online() && netWait ? netWait : tip, koF: sim.phase === 'end' ? koF : undefined,
     };
   }
   function stepBout() {
@@ -277,12 +281,32 @@
       koF++;
       if (koF === 14 && !spoke) {
         spoke = true;
-        Snd.play(sim.result.winner < 0 ? 'v_torinaoshi' : 'v_' + sim.result.kimarite, { vol: 0.9 });
+        // 決まり手は画面の文字だけ。読み上げると次の「はっけよい」に被る
+        if (sim.result.winner < 0) Snd.play('v_torinaoshi', { vol: 0.9 });
       }
       const any = held(0) || (match.mode === '2p' && held(1));
       const skip = koF >= c.KO_SKIP_AFTER_F && any && !prevHeld;
       prevHeld = any;
       if (koF >= c.KO_SHOW_F || skip) nextBout();
+    }
+  }
+  // オンライン:勝負はサーバーが進める。ここでは届いた状態を映すだけ。
+  function stepOnline() {
+    const fired = Net.input(held(0));
+    if (fired) { fartSound(fired); Render.fv[0].sq = 1; }
+    Net.advance();
+    sim = Net.sim;
+    if (!sim) return;
+    onEvents();
+    coachCheck();
+    Render.tick(sim);
+    if (sim.phase === 'end' && sim.stop === 0) {
+      koF++;
+      if (koF === 14 && !spoke) {
+        spoke = true;
+        // 決まり手は画面の文字だけ。読み上げると次の「はっけよい」に被る
+        if (sim.result.winner < 0) Snd.play('v_torinaoshi', { vol: 0.9 });
+      }
     }
   }
   function nextBout() {
@@ -373,6 +397,104 @@
     pic.onload = finish; pic.onerror = finish; pic.src = `assets/img/${key}.jpg`;
   }
 
+  // オンライン ------------------------------------------------------
+  let lobbyState = null, netWait = null;
+  const CODE_CHARS = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789';
+  const newCode = () => Array.from({ length: 4 }, () => CODE_CHARS[Math.floor(Math.random() * CODE_CHARS.length)]).join('');
+  const inviteUrl = () => location.origin + location.pathname + '?room=' + Net.code;
+  function onlineMenu() {
+    show('online', `<div class="screen" style="justify-content:center"><h2>友だちと対戦</h2>
+      <div class="menu">
+        <button class="btn" id="make" autofocus>部屋をつくる<small>招待リンクを相手に送る</small></button>
+        <div class="joinrow"><input id="code" maxlength="4" autocomplete="off" autocapitalize="characters" placeholder="4文字のコード" aria-label="部屋のコード"><button class="btn" id="join" style="width:auto">入る</button></div>
+        <p class="tag dim" id="err"></p>
+        <button class="btn" id="back">もどる</button>
+      </div></div>`, title);
+    on('#make', () => enterRoom(newCode()));
+    on('#join', () => {
+      const v = $ui.querySelector('#code').value.trim().toUpperCase();
+      if (/^[A-Z0-9]{4}$/.test(v)) enterRoom(v);
+      else $ui.querySelector('#err').textContent = 'コードは4文字です';
+    });
+    on('#back', title);
+  }
+  function enterRoom(code) {
+    lobbyState = null;
+    Net.join(code, {
+      // 離れている間に取組が終わっていたら、部屋へもどす
+      onWelcome: playing => { Net.send({ t: 'pick', k: save.picked }); if (!playing && online()) lobby(); },
+      onLobby: l => { lobbyState = l; updateLobby(); },
+      onStart: m => { match = { mode: 'online', keys: m.keys, need: m.need, score: [0, 0], kims: [] }; Snd.syncLoops(true); },
+      onBout: m => {
+        match.score = m.score; match.kims = m.kims;
+        sim = Net.sim; netWait = null;
+        Render.reset();
+        koF = 0; spoke = false;
+        show('bout', '');
+        Snd.play('v_hakke', { vol: 0.8 });
+        Snd.play('taiko', { vol: 0.5, dur: 0.6 });
+      },
+      onWait: sec => { netWait = sec ? `相手の接続を待っている…あと${sec}秒` : null; },
+      onDrop: () => { netWait = '接続が切れた。つなぎ直している…'; updateLobby(); },
+      onBack: () => { netWait = null; updateLobby(); },
+      onEnd: m => { match.score = m.score; match.kims = m.kims; resultOnline(m); },
+      onFull: () => { onlineMenu(); $ui.querySelector('#err').textContent = 'その部屋はもう2人いる'; },
+      onFail: () => { match = null; sim = null; Snd.syncLoops(false); onlineMenu(); $ui.querySelector('#err').textContent = 'サーバーにつながらなかった。電波を確かめて、もう一度ためしてください'; },
+    });
+    lobby();
+  }
+  function lobby(ready) {
+    match = null; sim = null; Snd.syncLoops(false);
+    show('lobby', `<div class="screen"><h2>部屋 <span class="roomcode">${Net.code}</span></h2>
+      <p class="tag" id="lbs">つないでいる…</p>
+      <div class="row"><button class="btn" id="share" style="width:auto">招待リンクを送る</button></div>
+      <p class="tag dim" id="url"></p>
+      <div class="row small">${PLAYABLE.map(k => card(k, k === save.picked ? 'sel' : '')).join('')}</div>
+      <button class="btn" id="rdy" autofocus style="width:min(420px,100%)">準備OK</button>
+      <button class="btn" id="back" style="width:auto">部屋を出る</button></div>`, title);
+    $ui.querySelectorAll('.card').forEach(b => b.addEventListener('click', () => {
+      save.picked = b.dataset.k; store();
+      $ui.querySelectorAll('.card').forEach(x => x.classList.toggle('sel', x === b));
+      Net.send({ t: 'pick', k: save.picked });
+    }));
+    on('#share', async () => {
+      const url = inviteUrl();
+      try {
+        if (isTouch && navigator.share) await navigator.share({ title: '屁相撲', text: '屁相撲で勝負だ', url });
+        else { await navigator.clipboard.writeText(url); $ui.querySelector('#url').textContent = 'コピーした:' + url; }
+      } catch (e) { const u = $ui.querySelector('#url'); if (u) u.textContent = url; }
+    });
+    on('#rdy', () => Net.send({ t: 'ready', v: !(lobbyState && lobbyState.ready[0]) }));
+    on('#back', title);
+    if (ready) Net.send({ t: 'ready', v: true });
+    updateLobby();
+  }
+  function updateLobby() {
+    if (screen !== 'lobby') return;
+    const lbs = $ui.querySelector('#lbs'), rdy = $ui.querySelector('#rdy'), l = lobbyState;
+    if (!Net.connected) { lbs.textContent = 'つないでいる…'; return; }
+    if (!l) return;
+    const rival = CHARS[l.keys[1]] ? CHARS[l.keys[1]].name : '力士';
+    lbs.textContent = !l.on[1] ? '相手を待っている。招待リンクかコードを送ろう' : l.ready[1] ? `相手(${rival})は準備OK` : `相手(${rival})がえらんでいる`;
+    rdy.textContent = l.ready[0] ? '相手を待っている(押すと取り消す)' : '準備OK';
+  }
+  function resultOnline(m) {
+    pressedKeys.clear(); pointers.clear(); netWait = null;
+    const mt = match, win = m.winner === 0, afk = m.reason === 'afk';
+    show('result', `<div class="screen" style="justify-content:center"><p class="big">${afk ? '水入り' : win ? '勝ち名乗り' : '黒星'}</p>
+      <p class="tag">${afk ? 'しばらく動きがないので打ち切った' : m.reason === 'forfeit' ? (win ? '相手がいなくなったので不戦勝' : '不戦敗') : `${mt.score[0]} 対 ${mt.score[1]}`}</p>
+      <div class="menu">
+        <button class="btn" id="again" autofocus>もう一番</button>
+        <button class="btn" id="sel">力士を変える</button>
+        ${afk ? '' : '<button class="btn" id="cardBtn">取組カードを保存</button>'}
+        <button class="btn" id="back">部屋を出る</button>
+      </div></div>`, title);
+    on('#again', () => lobby(true));
+    on('#sel', () => lobby());
+    on('#cardBtn', () => saveCard(mt, win ? 0 : 1));
+    on('#back', title);
+  }
+
   function howto(back) {
     const key = isTouch ? '画面を長押し' : '長押し';
     show('howto', `<div class="screen howto"><h2>遊び方</h2>
@@ -388,6 +510,8 @@
       <section><h3>土俵の見方</h3>
         <p><b>扇形</b>:屁の届く範囲。<b>点線の先</b>:反動で飛ぶ先。<b class="ng">赤い✕</b>:撃つと自分が落ちる。</p>
         <p><b>芋</b>:拾うと次の一発が強い。20秒をすぎると土俵が縮む。</p></section>
+      <section><h3>友だちと対戦</h3>
+        <p>部屋をつくって招待リンクを送り、ふたりとも「準備OK」を押すと始まる。先に3本とったほうの勝ち。別の画面へ移ると接続が切れ、15秒もどらないと不戦敗になる。</p></section>
       <section><h3>勝つコツ</h3>
         <p>大きく溜めるのは、前に土俵が残っているときだけ。追い込まれたら、お尻を外へ向けて小さく撃つと中へ戻れる。</p></section>
       <button class="btn" id="back" autofocus style="width:auto">もどる</button></div>`, back);
@@ -455,7 +579,15 @@
     paused = true; screen = 'pause'; pauseBtn.classList.add('hidden');
     pressedKeys.clear(); pointers.clear();
     const showPause = () => {
-      paused = true;
+      paused = !online();
+      if (online()) {
+        show('pause', `<div class="screen" style="justify-content:center"><h2>取組は続いている</h2><div class="menu">
+          <button class="btn" id="res" autofocus>もどる</button>
+          <button class="btn" id="quit">やめる(不戦敗)</button></div></div>`, resume);
+        on('#res', resume);
+        on('#quit', () => Net.send({ t: 'quit' }));
+        return;
+      }
       show('pause', `<div class="screen" style="justify-content:center"><h2>一時停止</h2><div class="menu">
         <button class="btn" id="res" autofocus>つづける</button>
         <button class="btn" id="how">遊び方</button>
@@ -474,7 +606,8 @@
     acc += Math.min(100, now - last); last = now;
     while (acc >= STEP) {
       acc -= STEP;
-      if (screen === 'bout' && !paused && sim) stepBout();
+      if (online() && (screen === 'bout' || screen === 'pause')) stepOnline();
+      else if (screen === 'bout' && !paused && sim) stepBout();
     }
     if (sim && match && (screen === 'bout' || screen === 'pause')) Render.draw(sim, view());
     else Render.draw(null);
@@ -485,8 +618,10 @@
   Render.reset();
   applySettings();
   title();
+  const invited = new URLSearchParams(location.search).get('room');
+  if (invited && /^[A-Za-z0-9]{4}$/.test(invited)) enterRoom(invited.toUpperCase());
   requestAnimationFrame(frame);
 
   // 確認用
-  window.__hz = { get sim() { return sim; }, get screen() { return screen; }, get save() { return save; }, get match() { return match; } };
+  window.__hz = { get sim() { return sim; }, get screen() { return screen; }, get save() { return save; }, get match() { return match; }, net: Net };
 })();

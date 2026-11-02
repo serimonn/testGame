@@ -38,7 +38,7 @@
     const s = {
       seed: seed | 0, frame: 0, phase: 'ready', phaseF: 0, stop: 0,
       R: c.RING_R, f: [makeFighter(keyA, 0, opts && opts[0]), makeFighter(keyB, 1, opts && opts[1])],
-      waves: [], imo: null, events: [], result: null, gust: null,
+      waves: [], imo: null, events: [], result: null, gust: null, parryF: (opts && opts.parryF) || c.PARRY_F,
     };
     // 左右対称の開始角度。最初は互いに顔を向け、ずらし幅だけ乱数にする。
     const off = (rand(s) - 0.5) * 1.2;
@@ -104,7 +104,7 @@
     if (ang > tol) return;
     const fall = 1 - c.FALLOFF * Math.min(1, dist / w.range);
 
-    if (tgt.firedAgo <= c.PARRY_F) { // 屁返し
+    if (tgt.firedAgo <= s.parryF) { // 屁返し
       const bx = owner.x - tgt.x, by = owner.y - tgt.y, bl = Math.hypot(bx, by) || 1;
       const v = Math.min(c.HIT_V_MAX, c.BLAST * Math.max(w.p, 0.6) * c.PARRY_MULT * fall) / owner.mass;
       owner.vx += bx / bl * v; owner.vy += by / bl * v;

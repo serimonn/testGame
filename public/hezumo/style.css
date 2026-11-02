@@ -75,3 +75,6 @@ table.zk td { border-bottom: 1px solid #fff2; padding: 3px 8px; font-size: max(1
   #pauseBtn { top: max(8px, env(safe-area-inset-top)); }
 }
 .screen > * { flex-shrink: 0; }
+.roomcode { font-size: 1.5em; letter-spacing: .12em; color: var(--gold); }
+.joinrow { display: flex; gap: 8px; width: 100%; }
+.joinrow input { flex: 1; min-width: 0; min-height: 48px; font: 900 22px sans-serif; text-align: center; letter-spacing: .1em; text-transform: uppercase; border: 3px solid var(--gold); background: var(--paper); color: #1c1410; }
