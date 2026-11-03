@@ -11,6 +11,7 @@ Cloudflare Workers で動くブラウザゲーム置き場。ゲームごとにU
 | `/elevator/` | エレベーター係の地獄（ひとり用、スマホ縦） |
 | `/monosashi/` | 配信者の物差し（配信者と視聴者1〜10人 / CPUと練習） |
 | `/monosashi/ws/(h\|p)/<参加コード>` | 配信者の物差しのWebSocket（Durable Object、配信者ごとに1つ） |
+| `/yoake/` | よあけ市（ひとり用、夜市の街づくり。スマホ横・PC） |
 
 ## 構成
 

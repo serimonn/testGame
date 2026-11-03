@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+<meta name="theme-color" content="#0e0c1c">
+<title>よあけ市</title>
+<link rel="stylesheet" href="style.css?v=12">
+</head>
+<body>
+<div id="stage">
+  <div id="top" class="hidden">
+    <span id="hNight"></span>
+    <span id="hMoney"></span>
+    <span id="hStaff" title="働き手(空いている人/全員)"></span>
+    <span class="meter" title="油"><b>油</b><i id="hOil"></i></span>
+    <span class="meter gauge" title="賑わい。満タンで妖怪が来る"><b>賑わい</b><i id="hGauge"></i></span>
+    <span class="meter moon" title="夜の進み"><b>夜</b><i id="hTime"></i></span>
+  </div>
+  <div id="view">
+    <canvas id="game"></canvas>
+    <div id="guide" class="hidden"></div>
+    <div id="ui"></div>
+  </div>
+  <div id="bar" class="hidden">
+    <div id="tools"></div>
+    <div id="acts"></div>
+  </div>
+</div>
+<script src="config.js?v=12"></script>
+<script src="sprites.js?v=12"></script>
+<script src="sim.js?v=12"></script>
+<script src="audio.js?v=12"></script>
+<script src="render.js?v=12"></script>
+<script src="main.js?v=12"></script>
+</body>
+</html>
