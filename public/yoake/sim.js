@@ -241,6 +241,22 @@
       if (o.mark !== m) { if (o.mark >= 0 && this.started) { o.markT = 14; this.events.push({ t: 'mark', m, x: o.c * C.T + 8, y: o.r * C.T - 6 }); } o.mark = m; }
     }
   };
+  // 今夜来る客の見込み。働き手のそろった名所だけが客を呼ぶ
+  P.visitorParts = function () {
+    const p = { base: C.HUMAN_BASE, nights: Math.round(C.HUMAN_PER_NIGHT * (this.town.night - 1)), sights: {}, idle: {} };
+    for (const o of this.objs) {
+      if (o.kind !== 'build' || !BUILDS[o.type].visitors) continue;
+      const ok = o.cap >= staffOf(o) && o.accessTiles.length;
+      const m = ok ? p.sights : p.idle; m[o.type] = (m[o.type] || 0) + 1;
+    }
+    return p;
+  };
+  P.expectedVisitors = function () {
+    const p = this.visitorParts();
+    let v = p.base + p.nights;
+    for (const t of Object.keys(p.sights)) v += BUILDS[t].visitors * p.sights[t];
+    return v;
+  };
   P.open = function (o) { return o.kind === 'stall' && o.cap > 0 && this.lvl(o.c, o.r) > 0 && o.sitF <= 0 && !this.soldOut(o); };
   // 宿場からは、大店は蔵から運ばれた品物がないと売れない
   P.soldOut = function (o) { return o.type === 'oodana' && this.rank >= 2 && o.stock <= 0; };

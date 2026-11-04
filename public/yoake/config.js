@@ -47,9 +47,9 @@
     CHAYA_BUY: 1.4, TAIKO_GAUGE: 2, YASHIRO_PAY: 1.5, YASHIRO_HUMAN: 0.6,
     // 街の格。一晩に来た客の最高記録で上がる。unlock:建てられるようになる物、news:増える困りごと
     RANKS: [
-      { name: '野原の市', need: 0,   unlock: ['look', 'road', 'lantern', 'koyatai', 'nagaya', 'land', 'demolish'] },
-      { name: '門前町',   need: 30,  unlock: ['yatai', 'chaya', 'taiko', 'bansho'], news: '客が増えて店が混みはじめた。混んだ店は素通りされる。働き手と店を増やそう' },
-      { name: '宿場',     need: 80,  unlock: ['oodana', 'shibai', 'ido', 'kura', 'yashiro', 'joya'], news: '長屋は井戸の範囲にないと働き手が出ない。大店は蔵から荷車で品物を運ぶ' },
+      { name: '野原の市', need: 0,   unlock: ['look', 'road', 'lantern', 'koyatai', 'nagaya', 'chaya', 'land', 'demolish'] },
+      { name: '門前町',   need: 30,  unlock: ['yatai', 'shibai', 'taiko', 'bansho'], news: '客が増えて店が混みはじめた。混んだ店は素通りされる。働き手と店を増やそう。芝居小屋で客を大きく増やせる' },
+      { name: '宿場',     need: 80,  unlock: ['oodana', 'ido', 'kura', 'yashiro', 'joya'], news: '長屋は井戸の範囲にないと働き手が出ない。大店は蔵から荷車で品物を運ぶ' },
       { name: '不夜城',   need: 200, unlock: ['aburaya'], news: '油屋の範囲の提灯は油が長持ちする。5夜ごとに百鬼夜行が来る' },
     ],
     // 宿場から:大店の品物と荷車

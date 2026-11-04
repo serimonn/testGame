@@ -64,6 +64,17 @@
       e.stopPropagation(); Snd.unlock(); Snd.play('btn'); go(b.dataset.go, b.dataset);
     }));
   }
+  // 今夜の客の内訳
+  function visitorText() {
+    const p = night.visitorParts(), parts = [`村から${p.base}人`];
+    if (p.nights) parts.push(`夜を重ねて+${p.nights}人`);
+    for (const t of Object.keys(p.sights)) parts.push(`${BUILDS[t].name}${p.sights[t]}軒で+${BUILDS[t].visitors * p.sights[t]}人`);
+    let s = `今夜の客の見込み ${night.expectedVisitors()}人 = ${parts.join(' + ')}`;
+    const idle = Object.keys(p.idle).map(t => `${BUILDS[t].name}${p.idle[t]}軒`).join('、');
+    if (idle) s += `。${idle}は働き手が足りないか道に面していないので客を呼ばない`;
+    if (!Object.keys(p.sights).length) s += '。客を増やすには、道に面して茶屋を建て、働き手を2人そろえる';
+    return s;
+  }
   function guide(msg, sec) { $guide.textContent = msg; $guide.classList.toggle('hidden', !msg); guideT = sec ? sec * 60 : 0; }
   function tell(key, msg, sec) { if (told[key]) return; told[key] = true; guide(msg, sec || 5); }
 
@@ -129,6 +140,7 @@
       <p><b>働き手:</b>店は働き手がいないと開かない。働き手は門から2人通ってくるほか、長屋に3人ずつ住み、道でつながった近い店に就く。働き手の数だけ同時に客をさばける。</p>
       <p><b>客:</b>人は門から入り、名所(茶屋、芝居小屋)や道の奥を目指して歩き、途中の店で一晩に${C.WALLET}回まで買う。</p>
       <p><b>店の札:</b>提灯の札は明るい店で、人だけが買う。目玉の札(鬼火つき)は薄暗い店で、人も妖怪も買う。×は暗くて閉店。人の形に斜線は人手なし。</p>
+      <p><b>街の格:</b>一晩に来る客の数で上がる(門前町30人、宿場80人、不夜城200人)。上がると建てられる物が増え、困りごとも増える。客は毎晩少しずつ増え、働き手のそろった茶屋や芝居小屋で増やせる。上の帯に、次の格まであと何人かが出る。押すと客の内訳が出る。</p>
       <p><b>夜:</b>人に売ると賑わいが溜まり、満タンで妖怪が勝手に来る。妖怪は薄暗い店でだけ、単価の${C.YOKAI_PAY}倍で買い、何をするかは気まぐれ。</p>
       <p><b>夜の操作:</b>提灯をタップで火を細くする・戻す(細くすると隣が薄暗くなる)。喰っている妖怪、居座る妖怪はタップで追い払う。喰われた提灯はタップで点け直す(¥${C.RELIGHT_COST})。</p>
       <p><b>地図:</b>ドラッグで動かす。ピンチかホイールで拡大縮小。</p>
@@ -147,7 +159,10 @@
   function refresh() { night = new Sim.Night(town); updateBar(); prepGuide(); }
   function prepGuide() {
     if (scene !== 'prep') return;
-    if (town.history.length) { if (!guideT) guide(''); return; }
+    if (town.history.length) {
+      if (!told.visitors) { told.visitors = true; guide('客を増やすには茶屋を建てる(働き手2人)。上の「次の格」を押すと客の内訳が出る', 8); return; }
+      if (!guideT) guide(''); return;
+    }
     const roads = town.roads.reduce((a, b) => a + b, 0);
     const has = k => town.objs.some(o => o.type === k);
     if (roads < 4) guide('① 門から道を敷こう(ドラッグでまとめて敷ける)');
@@ -226,6 +241,19 @@
     if (!night || !town) return;
     $('#hNight').innerHTML = `第${scene === 'dawn' ? town.night - 1 : town.night}夜<small>${C.RANKS[Sim.rankOf(town)].name}${night.hyakki ? '・百鬼夜行' : ''}</small>`;
     $('#hMoney').textContent = '¥' + town.money;
+    // 次の格までの道のり
+    const rk = Sim.rankOf(town), nx = C.RANKS[rk + 1], $r = $('#hRank');
+    if (!nx) { $r.textContent = '最高の格'; $r.className = ''; }
+    else {
+      const now = scene === 'night' ? night.earn.visitors + night.spawns.length : night.expectedVisitors();
+      const shown = scene === 'night' ? night.earn.visitors : now;
+      // 狭い画面では短く
+      $r.textContent = innerWidth < 700 ? `→${nx.name} ${shown}/${nx.need}人` : scene === 'night' ? `次の格「${nx.name}」 今夜の客 ${shown}/${nx.need}人` : `次の格「${nx.name}」 今夜の客の見込み ${shown}/${nx.need}人`;
+      $r.className = now >= nx.need ? 'reach' : '';
+      $r.title = `一晩に${nx.need}人の客が来ると、朝に「${nx.name}」に上がる。客は毎晩少しずつ増え、働き手のそろった茶屋や芝居小屋で増やせる`;
+    }
+    $r.onclick = () => { Snd.unlock(); guide(visitorText(), 9); };
+    $r.style.cursor = 'pointer';
     const st = $('#hStaff');
     st.textContent = `働き手 ${night.idle}/${night.workers}`;
     st.classList.toggle('short', night.needStaff > night.workers);
@@ -375,6 +403,10 @@
       if (ev.t === 'whim' && ev.k === 'leaf') tell('leaf', '葉っぱの銭は、朝になると消えてしまう', 5);
       if (ev.t === 'whim' && ev.k === 'sit') tell('sit', '居座る妖怪がいる店は閉まる。タップで追い払える', 5);
       if (ev.t === 'dry') tell('dry', '油が切れて提灯が細くなった。「油を買う」か、火を細くして節約', 6);
+      if (ev.t === 'start' || ev.t === 'hyakki') {
+        const nx = C.RANKS[Sim.rankOf(town) + 1];
+        if (nx && night.earn.visitors + night.spawns.length >= nx.need) tell('reach' + nx.name, `今夜の客は${nx.need}人を超える。朝に「${nx.name}」に上がる`, 5);
+      }
       if (ev.t === 'hyakki') guide('百鬼夜行の夜。妖怪がいつもの何倍も来る', 6);
       if (ev.t === 'noyokai') tell('noyokai', '妖怪の来られる暗がりがない。土地を開くか、暗い所を残そう', 6);
     }
