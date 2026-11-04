@@ -152,6 +152,48 @@
     'kbbbbbkyykbbbbbk',
     'kkkkkkkkkkkkkkkk',
   ]);
+  S.ido = make([
+    '................',
+    '..kkkkkkkkkkkk..',
+    '.kbbbbbbbbbbbbk.',
+    'kbbbbbbbbbbbbbbk',
+    'kkkkkkkkkkkkkkkk',
+    '...kbk....kbk...',
+    '...kbk.kk.kbk...',
+    '...kbk.ks.kbk...',
+    '..kkkkkkkkkkkk..',
+    '.kSSSSSSSSSSSSk.',
+    '.kSkaaaaaaaakSk.',
+    '.kSkaccaaccakSk.',
+    '.kSSSSSSSSSSSSk.',
+    '.kkkkkkkkkkkkkk.',
+  ]);
+  S.kura = make([
+    '.....kkkkkk.....',
+    '...kkssssssk....',
+    '.kkssssssssskk..',
+    'kssssssssssssssk',
+    'kkkkkkkkkkkkkkkk',
+    '.kwwwwwwwwwwwwk.',
+    '.kwwwwkkkkwwwwk.',
+    '.kwwwwkbbkwwwwk.',
+    '.kwwwwkbbkwwwwk.',
+    '.kssssssssssssk.',
+    '.kskskskskskssk.',
+    '.kkkkkkkkkkkkkk.',
+  ]);
+  S.cart = make([
+    '..........',
+    'kkkkkkkkk.',
+    'kbobobobk.',
+    'kbbbbbbbbk',
+    'kkkkkkkkkk',
+    '.kBk..kBk.',
+    '.kkk..kkk.',
+  ]);
+  // 井戸の範囲にない長屋(水なし)、品切れの大店
+  S.markDry = make(['...k...', '..kak..', '.kacak.', '.kaaak.', 'kaaaaak', '.kaaak.', '..kkk..'], { a: 'a', c: 'c' });
+  S.markEmpty = make(['kkkkkkk', 'kbbbbbk', 'kb...bk', 'kb.R.bk', 'kb...bk', 'kbbbbbk', 'kkkkkkk']);
   // 店の中の札の位置(絵の上端から)
   S.markAt = { koyatai: 5, yatai: 5, oodana: 11 };
   // 人手なし:人の形に赤い斜線

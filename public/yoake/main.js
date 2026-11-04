@@ -7,7 +7,15 @@
 
   // ---------- 保存 ----------
   const SAVE_KEY = 'yoake-ichi-v3';
-  function load() { try { const s = JSON.parse(localStorage.getItem(SAVE_KEY)); return s && s.v === 3 ? s : null; } catch (e) { return null; } }
+  function load() {
+    try {
+      const s = JSON.parse(localStorage.getItem(SAVE_KEY));
+      if (!s || s.v !== 3) return null;
+      // 格を入れる前の保存は、これまでの客の最高記録から格を決める
+      if (s.best === undefined) s.best = Math.max(0, ...s.history.map(h => h.visitors || 0));
+      return s;
+    } catch (e) { return null; }
+  }
   function saveGame() { try { localStorage.setItem(SAVE_KEY, JSON.stringify(town)); } catch (e) {} }
 
   Render.init($cv);
@@ -30,6 +38,9 @@
     { k: 'yashiro', name: 'お社', spr: SPR.yashiro },
     { k: 'bansho', name: '番所', spr: SPR.bansho },
     { k: 'joya', name: '常夜灯', spr: SPR.joya },
+    { k: 'ido', name: '井戸', spr: SPR.ido },
+    { k: 'kura', name: '蔵', spr: SPR.kura },
+    { k: 'aburaya', name: '油屋', spr: SPR.aburaya },
     { k: 'land', name: '土地', ic: '⛰', sep: true },
     { k: 'demolish', name: '取り壊し', ic: '⛏' },
   ];
@@ -39,7 +50,10 @@
     look: '見る:地図を動かすだけ。置き間違いを防ぐ',
     road: '道:人が歩き、火を運ぶ。ドラッグでまとめて敷ける', lantern: '提灯:道の近くに置ける。隣は明るく、2マス先は薄暗い',
     koyatai: '小屋台:単価¥10。働き手1人', yatai: '屋台:単価¥30。働き手2人', oodana: '大店:単価¥100。働き手4人',
-    land: '土地:藪の区画を買って開く。門から遠いほど高い', demolish: '取り壊し:半分の銭が戻る。ドラッグでまとめて',
+    land: '土地:藪の区画を買って開く。門から遠いほど高い',
+    ido: '井戸:範囲の長屋に水を届ける。宿場からは水のない長屋から働き手が出ない',
+    kura: '蔵:荷車で大店に品物を運ぶ。働き手2人。宿場からは大店に品物が要る',
+    aburaya: '油屋:範囲の提灯は油の減りが遅い。働き手2人', demolish: '取り壊し:払った銭が全部戻る。ドラッグでまとめて',
   };
   const WHY = { land: '藪の中', money: '銭が足りない', used: 'ふさがっている', fire: '火の通った道から遠い', out: '' };
   const priceOf = k => k === 'land' ? 0 : C.PRICE[k] || 0;
@@ -127,6 +141,7 @@
     scene = 'prep'; paused = false; speed = 1; show('');
     night = new Sim.Night(town); duskTo = 0.5;
     $top.classList.remove('hidden'); $bar.classList.remove('hidden');
+    if (!Sim.unlocked(town).has(tool)) tool = 'road';
     saveGame(); buildBar(); updateBar(); prepGuide();
   }
   function refresh() { night = new Sim.Night(town); updateBar(); prepGuide(); }
@@ -170,6 +185,7 @@
         <span>喰われた提灯 <b>${s.eaten}</b></span><span>追い払い <b>${s.shoo}</b></span>
       </div>
       ${whims ? `<div class="stat" style="font-size:12px">妖怪の気まぐれ:${whims}</div>` : ''}
+      ${s.rankUp ? `<div class="rankup"><b>格が上がった:${C.RANKS[s.rankUp].name}</b><br>新しく建てられる:${C.RANKS[s.rankUp].unlock.map(k => (BUILDS[k] || STALLS[k] || {}).name || k).join('、')}<br><small>${C.RANKS[s.rankUp].news}</small></div>` : ''}
       ${goal}
       <div class="row"><button class="btn" data-go="prep">朝の普請へ<small>稼ぎで街を広げる</small></button></div>`, 'dock');
     $ui.querySelectorAll('[data-count]').forEach(el => {
@@ -187,7 +203,8 @@
   // ---------- 下の帯 ----------
   function buildBar() {
     if (scene === 'prep') {
-      $tools.innerHTML = TOOLS.map(tl => {
+      const open = Sim.unlocked(town);
+      $tools.innerHTML = TOOLS.filter(tl => open.has(tl.k)).map(tl => {
         const p = priceOf(tl.k);
         const ic = tl.spr || tl.k === 'road' ? `<img src="${icon[tl.k]}" alt="">` : `<span class="ic">${tl.ic}</span>`;
         return `<button class="tool${tl.sep ? ' sep' : ''}" data-tool="${tl.k}" title="${HELP[tl.k] || (BUILDS[tl.k] ? BUILDS[tl.k].name + ':' + BUILDS[tl.k].desc : '')}">${ic}${tl.name}${p ? `<span class="p">¥${p}</span>` : ''}</button>`;
@@ -207,7 +224,7 @@
   }
   function updateBar() {
     if (!night || !town) return;
-    $('#hNight').textContent = `第${scene === 'dawn' ? town.night - 1 : town.night}夜`;
+    $('#hNight').innerHTML = `第${scene === 'dawn' ? town.night - 1 : town.night}夜<small>${C.RANKS[Sim.rankOf(town)].name}${night.hyakki ? '・百鬼夜行' : ''}</small>`;
     $('#hMoney').textContent = '¥' + town.money;
     const st = $('#hStaff');
     st.textContent = `働き手 ${night.idle}/${night.workers}`;
@@ -358,6 +375,7 @@
       if (ev.t === 'whim' && ev.k === 'leaf') tell('leaf', '葉っぱの銭は、朝になると消えてしまう', 5);
       if (ev.t === 'whim' && ev.k === 'sit') tell('sit', '居座る妖怪がいる店は閉まる。タップで追い払える', 5);
       if (ev.t === 'dry') tell('dry', '油が切れて提灯が細くなった。「油を買う」か、火を細くして節約', 6);
+      if (ev.t === 'hyakki') guide('百鬼夜行の夜。妖怪がいつもの何倍も来る', 6);
       if (ev.t === 'noyokai') tell('noyokai', '妖怪の来られる暗がりがない。土地を開くか、暗い所を残そう', 6);
     }
     night.events.length = 0;

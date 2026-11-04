@@ -35,6 +35,10 @@
     return C.LAND_COST + C.LAND_COST_STEP * Math.max(0, d - 1);
   }
   function objAt(town, c, r) { return town.objs.find(o => o.c === c && o.r === r); }
+  // 街の格。一晩に来た客の最高記録で決まる
+  function rankOf(town) { let k = 0; C.RANKS.forEach((r, i) => { if ((town.best || 0) >= r.need) k = i; }); return k; }
+  function unlocked(town) { const k = rankOf(town), s = new Set(); for (let i = 0; i <= k; i++) for (const t of C.RANKS[i].unlock) s.add(t); return s; }
+  const staffOf = o => (STALLS[o.type] || BUILDS[o.type] || {}).staff || 0;
 
   // 強さ 0〜1。提灯はまっすぐ弱まり、重なるほど明るい。常夜灯は範囲の中が全部明るい
   function lightFrom(src, x, y) {
@@ -52,14 +56,16 @@
   // ---------- 一晩 ----------
   function Night(town) {
     this.town = town;
+    this.rank = rankOf(town);
+    this.hyakki = this.rank >= 3 && town.night % C.HYAKKI_EVERY === 0;   // 百鬼夜行の夜
     this.f = 0; this.started = false; this.over = false; this.done = false;
     this.objs = town.objs.map(o => ({
       ref: o, type: o.type, c: o.c, r: o.r, kind: o.type === 'lantern' ? 'lantern' : isStall(o.type) ? 'stall' : 'build',
-      eaten: false, off: false, eatT: 0, eatBy: null, sitF: 0, sitBy: null, bump: 0, mark: -1, markT: 0, cap: 0, inUse: 0, accessTiles: [],
+      eaten: false, off: false, eatT: 0, eatBy: null, sitF: 0, sitBy: null, bump: 0, mark: -1, markT: 0, cap: 0, inUse: 0, accessTiles: [], stock: o.type === 'oodana' ? C.OODANA_STOCK : 0, cartT: 30, cartOut: false, dry: false,
     }));
     this.occ = new Array(N).fill(null);
     for (const o of this.objs) this.occ[idx(o.c, o.r)] = o;
-    this.humans = []; this.yokai = []; this.events = [];
+    this.humans = []; this.yokai = []; this.carts = []; this.events = [];
     this.earn = { human: 0, yokai: 0, hn: 0, yn: 0, eaten: 0, shoo: 0, leaf: 0, whims: {}, visitors: 0, yokaiCame: 0 };
     this.gauge = 0; this.stop = 0; this.shake = 0;
     this.oilMax = Math.max(1, this.objs.filter(o => o.kind === 'lantern').length * C.OIL_PER_LANTERN);
@@ -73,8 +79,8 @@
   const P = Night.prototype;
   Night.lightFrom = lightFrom; Night.levelOf = levelOf; Night.CW = CW; Night.CH = CH;
 
-  P.gaugeMax = function () { return Math.min(C.GAUGE_MAX, Math.round(C.GAUGE_BASE + C.GAUGE_PER_NIGHT * (this.town.night - 1))); };
-  P.yokaiCap = function () { return Math.min(C.YOKAI_CAP_MAX, Math.floor(C.YOKAI_CAP_BASE + C.YOKAI_CAP_PER_NIGHT * (this.town.night - 1))); };
+  P.gaugeMax = function () { const g = Math.min(C.GAUGE_MAX, Math.round(C.GAUGE_BASE + C.GAUGE_PER_NIGHT * (this.town.night - 1))); return this.hyakki ? Math.max(2, Math.round(g * C.HYAKKI_GAUGE)) : g; };
+  P.yokaiCap = function () { const k = Math.min(C.YOKAI_CAP_MAX, Math.floor(C.YOKAI_CAP_BASE + C.YOKAI_CAP_PER_NIGHT * (this.town.night - 1))); return this.hyakki ? k * C.HYAKKI_CAP : k; };
   P.objAt = function (c, r) { return inMap(c, r) ? this.occ[idx(c, r)] : null; };
   P.isRoad = function (c, r) { return inMap(c, r) && !!this.town.roads[idx(c, r)]; };
   P.lvl = function (c, r) { return inMap(c, r) ? this.level[idx(c, r)] : 0; };
@@ -126,6 +132,9 @@
   P.recalcAccess = function () {
     this.access = new Map();
     for (const o of this.objs) {
+      if (o.kind === 'build' && staffOf(o)) o.accessTiles = DIR4.map(([dx, dy]) => [o.c + dx, o.r + dy]).filter(([c, r]) => this.isRoad(c, r) && this.fire[idx(c, r)]).map(([c, r]) => idx(c, r));
+    }
+    for (const o of this.objs) {
       if (o.kind !== 'stall') continue;
       const a = this.stallAccess(o);
       o.accessTiles = a.tiles;
@@ -152,12 +161,14 @@
     const homes = [{ tile: idx(C.GATE.c, C.GATE.r), n: C.GATE_WORKERS }];
     for (const o of this.objs) {
       if (o.type !== 'nagaya') continue;
+      o.dry = this.rank >= 2 && !this.inArea('ido', o.c, o.r);
+      if (o.dry) continue;
       const side = DIR4.map(([dx, dy]) => [o.c + dx, o.r + dy]).find(([c, r]) => this.isRoad(c, r) && this.fire[idx(c, r)]);
       o.home = !!side;
       if (side) homes.push({ tile: idx(side[0], side[1]), n: C.NAGAYA_WORKERS });
     }
     const pairs = [];
-    const stalls = this.objs.filter(o => o.kind === 'stall');
+    const stalls = this.objs.filter(o => staffOf(o) > 0);
     homes.forEach((h, hi) => {
       const d = this.roadDist([h.tile], C.WORK_REACH);
       for (const s of stalls) {
@@ -170,13 +181,13 @@
     const left = homes.map(h => h.n);
     for (const s of stalls) s.cap = 0;
     for (const p of pairs) {
-      const need = STALLS[p.s.type].staff - p.s.cap;
+      const need = staffOf(p.s) - p.s.cap;
       if (need <= 0 || left[p.hi] <= 0) continue;
       const k = Math.min(need, left[p.hi]); p.s.cap += k; left[p.hi] -= k;
     }
     this.workers = homes.reduce((a, h) => a + h.n, 0);
     this.idle = left.reduce((a, b) => a + b, 0);
-    this.needStaff = stalls.reduce((a, s) => a + STALLS[s.type].staff, 0);
+    this.needStaff = stalls.reduce((a, s) => a + staffOf(s), 0);
   };
 
   P.burning = function (o) { return o.kind === 'lantern' && !o.eaten && !o.off && this.nearFire[idx(o.c, o.r)]; };
@@ -230,14 +241,17 @@
       if (o.mark !== m) { if (o.mark >= 0 && this.started) { o.markT = 14; this.events.push({ t: 'mark', m, x: o.c * C.T + 8, y: o.r * C.T - 6 }); } o.mark = m; }
     }
   };
-  P.open = function (o) { return o.kind === 'stall' && o.cap > 0 && this.lvl(o.c, o.r) > 0 && o.sitF <= 0; };
+  P.open = function (o) { return o.kind === 'stall' && o.cap > 0 && this.lvl(o.c, o.r) > 0 && o.sitF <= 0 && !this.soldOut(o); };
+  // 宿場からは、大店は蔵から運ばれた品物がないと売れない
+  P.soldOut = function (o) { return o.type === 'oodana' && this.rank >= 2 && o.stock <= 0; };
+  P.useStock = function (o) { if (o.type === 'oodana' && this.rank >= 2) o.stock = Math.max(0, o.stock - 1); };
 
   // ---------- 夜の始まり ----------
   P.start = function () {
     const n = this.town.night;
     this.sights = [];
     for (const o of this.objs) {
-      if (o.kind !== 'build' || !BUILDS[o.type].visitors) continue;
+      if (o.kind !== 'build' || !BUILDS[o.type].visitors || o.cap < staffOf(o)) continue;
       const goals = DIR4.map(([dx, dy]) => [o.c + dx, o.r + dy]).filter(([c, r]) => this.isRoad(c, r) && this.fire[idx(c, r)]).map(([c, r]) => idx(c, r));
       if (goals.length) this.sights.push({ o, w: BUILDS[o.type].visitors, goals });
     }
@@ -248,7 +262,7 @@
     this.spawns.sort((a, b) => a.f - b.f);
     this.roadTiles = []; for (let i = 0; i < N; i++) if (this.fire[i]) this.roadTiles.push(i);
     this.started = true; this.dirty = true;
-    this.events.push({ t: 'start' });
+    this.events.push({ t: this.hyakki ? 'hyakki' : 'start' });
   };
   // 目当てのマスへの距離の地図。夜のうちは道が変わらないので、行き先ごとに一度だけ作る(軽量化)
   P.field = function (key, goals) {
@@ -269,7 +283,7 @@
       if (o.eatBy) this.dirty = true;
     }
     if (this.f < C.NIGHT_F) {
-      let burning = 0; for (const o of this.objs) if (this.burning(o)) burning++;
+      let burning = 0; for (const o of this.objs) if (this.burning(o)) burning += this.inArea('aburaya', o.c, o.r) ? C.ABURAYA_OIL : 1;
       const before = this.oil;
       this.oil = Math.max(0, this.oil - burning * C.OIL_PER_SEC / 60);
       if (before > 0 && this.oil === 0) { this.events.push({ t: 'dry' }); this.dirty = true; }
@@ -278,6 +292,8 @@
     while (this.spawns.length && this.spawns[0].f <= this.f) { this.spawns.shift(); this.spawnHuman(); }
     for (const a of this.humans) this.stepHuman(a);
     for (const a of this.yokai) this.stepYokai(a);
+    if (this.rank >= 2) this.stepKura();
+    if (this.carts.some(a => a.gone)) this.carts = this.carts.filter(a => !a.gone);
     if (this.humans.some(a => a.gone)) this.humans = this.humans.filter(a => !a.gone);
     if (this.yokai.some(a => a.gone)) this.yokai = this.yokai.filter(a => !a.gone);
     if (this.f === C.NIGHT_F) {
@@ -369,6 +385,7 @@
   };
   P.payHuman = function (o) {
     const v = STALLS[o.type].price;
+    this.useStock(o);
     this.town.money += v; this.earn.human += v; this.earn.hn++; o.bump = 8;
     this.events.push({ t: 'coin', v, x: o.c * C.T + 8, y: o.r * C.T - 2 });
     if (this.over) return;
@@ -376,6 +393,43 @@
     if (this.gauge >= this.gaugeMax()) {
       this.gauge = 0;
       if (this.earn.yokaiCame < this.yokaiCap()) this.spawnYokai();
+    }
+  };
+
+  // ---------- 蔵と荷車 ----------
+  // 蔵は働き手がそろっていれば、品物の少ない大店へ荷車を出す。荷車は道を通って運び、蔵へ戻る
+  P.stepKura = function () {
+    for (const k of this.objs) {
+      if (k.type !== 'kura' || k.cap < staffOf(k) || k.cartOut || !k.accessTiles.length || this.over) continue;
+      if (--k.cartT > 0) continue;
+      const home = k.accessTiles[0], d = this.field('k' + home, [home]);
+      let best = null, bs = 1e9;
+      for (const o of this.objs) {
+        if (o.type !== 'oodana' || o.cap <= 0) continue;
+        let dist = -1; for (const t of o.accessTiles) if (d[t] >= 0 && (dist < 0 || d[t] < dist)) dist = d[t];
+        if (dist < 0) continue;
+        const score = o.stock * 100 + dist;
+        if (score < bs) { bs = score; best = o; }
+      }
+      if (!best || best.stock >= C.OODANA_STOCK * 3) { k.cartT = 60; continue; }
+      const a = { kind: 'cart', from: k, to: best, state: 'go', next: null, face: 1, t: 0, dest: { key: 'o' + best.c + ',' + best.r, goals: best.accessTiles }, home: { key: 'k' + home, goals: [home] } };
+      place(a, home % C.COLS, (home / C.COLS) | 0);
+      k.cartOut = true; this.carts.push(a);
+    }
+    for (const a of this.carts) {
+      a.t++; a.walking = false;
+      if (!a.next) {
+        const goal = a.state === 'go' ? a.dest : a.home;
+        const f = this.field(goal.key, goal.goals), d = f[idx(a.c, a.r)];
+        if (d <= 0) {
+          if (a.state === 'go' && d === 0) { a.to.stock += C.CART_LOAD; a.state = 'back'; this.events.push({ t: 'cart', x: a.to.c * C.T + 8, y: a.to.r * C.T - 2 }); continue; }
+          a.gone = true; a.from.cartOut = false; a.from.cartT = C.CART_EVERY; continue;
+        }
+        const opts = DIR4.map(([dx, dy]) => [a.c + dx, a.r + dy]).filter(([c, r]) => inMap(c, r) && f[idx(c, r)] === d - 1);
+        if (!opts.length) { a.gone = true; a.from.cartOut = false; a.from.cartT = C.CART_EVERY; continue; }
+        const [nc, nr] = pick(opts); a.next = { c: nc, r: nr };
+      }
+      if (stepTo(a, a.next.c, a.next.r, C.CART_SPEED)) a.next = null;
     }
   };
 
@@ -511,6 +565,7 @@
     const v = Math.round(STALLS[o.type].price * C.YOKAI_PAY * W.mult * mult);
     const x = o.c * C.T + 8, y = o.r * C.T - 2;
     if (v > 0) {
+      this.useStock(o);
       this.town.money += v; this.earn.yokai += v; this.earn.yn++; o.bump = 8;
       if (k === 'leaf') this.earn.leaf += v;
       this.stop = C.STOP_YOKAI_BUY;
@@ -601,10 +656,14 @@
     town.money -= leaf;
     const sum = Object.assign({ night: town.night, leafLost: leaf }, night.earn);
     town.total += night.earn.human + night.earn.yokai - leaf;
+    const before = rankOf(town);
+    town.best = Math.max(town.best || 0, night.earn.visitors);
+    const after = rankOf(town);
+    if (after > before) sum.rankUp = after;
     town.history.push(sum);
     town.night++;
     return sum;
   }
 
-  root.Sim = { newTown, Night, dawn, canBuild, build, demolish, buyLand, landBuyable, landCost, landOf, landOpen, previewMark, idx, inMap, LX, LY, isStall, isBuild };
+  root.Sim = { newTown, Night, dawn, canBuild, build, demolish, buyLand, landBuyable, landCost, landOf, landOpen, previewMark, idx, inMap, LX, LY, isStall, isBuild, rankOf, unlocked, staffOf };
 })(window);

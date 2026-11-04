@@ -83,3 +83,8 @@ canvas { position: absolute; inset: 0; width: 100%; height: 100%; touch-action: 
   .act.go { min-width: 84px; font-size: 13px; }
   .nighthelp { display: none; }
 }
+
+#hNight small { font-weight: 600; color: #ffcf7a; margin-left: .4em; font-size: 12px; }
+.rankup { background: #3a2f18; border: 2px solid var(--gold); border-radius: 4px; padding: 6px 10px; font-size: 13px; line-height: 1.5; text-align: center; }
+.rankup b { color: var(--gold); font-size: 15px; }
+.rankup small { color: #e9dfc8; }

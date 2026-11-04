@@ -105,6 +105,9 @@
       case 'place': case 'pickup':
         for (let i = 0; i < 6; i++) { const a = i / 6 * Math.PI * 2; P({ k: 'dust', x: ev.x + Math.cos(a) * 5, y: ev.y + 5, vx: Math.cos(a) * 0.5, vy: -0.2, life: 14 }); }
         break;
+      case 'cart':
+        P({ k: 'text', x: ev.x, y: ev.y - 6, s: '+' + C.CART_LOAD, col: '#9be07a', life: 40, vy: -0.4 });
+        break;
       case 'nope':
         P({ k: 'text', x: ev.x, y: ev.y - 10, s: '¥?', col: '#ff6a3d', life: 30, vy: -0.3 });
         break;
@@ -218,10 +221,12 @@
     if (inView(C.GATE.c, C.GATE.r)) list.push({ y: C.GATE.r * T + T - 0.5, gate: true });
     for (const a of n.humans) if (inView(a.c, a.r)) list.push({ y: a.y, a });
     for (const a of n.yokai) if (inView(Math.floor(a.x / T), Math.floor(a.y / T))) list.push({ y: a.y, a });
+    for (const a of n.carts) if (inView(a.c, a.r)) list.push({ y: a.y, cart: a });
     list.sort((p, q) => p.y - q.y);
     const glows = [], after = [];
     for (const it of list) {
       if (it.gate) { const s = SPR.gate2; spr(s, C.GATE.c * T, C.GATE.r * T + T - s.h); glows.push({ s, x: C.GATE.c * T, y: C.GATE.r * T + T - s.h, a: 0.8 + 0.2 * Math.sin(v.t / 7) }); continue; }
+      if (it.cart) { const s = SPR.cart, a = it.cart, bob = a.walking && (a.t >> 3) % 2 ? -1 : 0; spr(s, a.x - s.w / 2, a.y - s.h + bob, a.face < 0); continue; }
       if (it.o) drawObj(n, it.o, v.t, glows, after);
       else drawAgent(n, it.a, v.t, glows);
     }
@@ -279,13 +284,20 @@
     }
   }
 
-  const BSPR = { nagaya: 'nagaya', chaya: 'chayaB', shibai: 'shibai', taiko: 'taiko', yashiro: 'yashiro', bansho: 'bansho', joya: 'joya' };
+  const BSPR = { nagaya: 'nagaya', chaya: 'chayaB', shibai: 'shibai', taiko: 'taiko', yashiro: 'yashiro', bansho: 'bansho', joya: 'joya', ido: 'ido', kura: 'kura', aburaya: 'aburaya' };
   function drawObj(n, o, t, glows, after) {
     const bx = o.c * T, by = o.r * T + T;
     if (o.kind === 'build') {
       const s = SPR[BSPR[o.type]]; spr(s, bx, by - s.h);
-      const lit = o.type !== 'joya' || n.nearFire[Sim.idx(o.c, o.r)];
+      const need = Sim.staffOf(o);
+      const lit = (o.type !== 'joya' || n.nearFire[Sim.idx(o.c, o.r)]) && !o.dry && o.cap >= need;
       if (lit) glows.push({ s, x: bx, y: by - s.h, a: 0.85 + 0.15 * Math.sin(t / 13 + o.c) });
+      // 水のない長屋、人手の足りない建物は札で知らせる
+      if (o.dry) after.push(() => spr(SPR.markDry, bx + 4, by - s.h - 8));
+      else if (need) after.push(() => {
+        if (o.cap < need) spr(SPR.markNoStaff, bx + 4, by - s.h - 8);
+        for (let i = 0; i < need; i++) { x.fillStyle = i < o.cap ? '#ffe14d' : '#3a3540'; x.fillRect(bx + 8 - need + i * 2, by - 2, 1, 1); }
+      });
       return;
     }
     if (o.kind === 'lantern') {
@@ -308,7 +320,7 @@
     const staffed = o.cap > 0, need = STALLS[o.type].staff;
     after.push(() => {
       const jump = o.markT > 0 ? -Math.round(Math.sin(o.markT / 14 * Math.PI) * 2) : 0;
-      const mk = !staffed ? SPR.markNoStaff : [SPR.markClosed, SPR.markYokai, SPR.markHuman][m];
+      const mk = !staffed ? SPR.markNoStaff : n.soldOut(o) ? SPR.markEmpty : [SPR.markClosed, SPR.markYokai, SPR.markHuman][m];
       spr(mk, bx + 4, top + at + jump);
       // 働き手の数(足りない分は暗い点)
       for (let i = 0; i < need; i++) { x.fillStyle = i < o.cap ? '#ffe14d' : '#3a3540'; x.fillRect(bx + 8 - need + i * 2, by - 3, 1, 1); }
@@ -316,6 +328,8 @@
         const f = SPR.onibi[Math.floor(t / 10 + o.c) % 2];
         spr(f, bx + 12 + Math.round(Math.sin(t / 20 + o.r) * 1.5), top + at - 2 + Math.round(Math.sin(t / 13 + o.c) * 2), false, 0.9);
       }
+      // 大店の品物の残り
+      if (o.type === 'oodana' && n.rank >= 2) { const k = Math.min(1, o.stock / (C.OODANA_STOCK * 2)); x.fillStyle = '#1a1420'; x.fillRect(bx + 1, top + 1, 2, 10); x.fillStyle = k > 0.25 ? '#9be07a' : '#ff6a3d'; x.fillRect(bx + 1, top + 1 + Math.round(10 * (1 - k)), 2, Math.round(10 * k)); }
       if (o.sitF > 0) { x.fillStyle = '#1a1420'; x.fillRect(bx + 2, top - 2, 12, 2); x.fillStyle = '#b48ae0'; x.fillRect(bx + 2, top - 2, Math.ceil(12 * o.sitF / C.SIT_F), 2); }
     });
   }
