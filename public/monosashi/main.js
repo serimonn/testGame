@@ -51,7 +51,7 @@
     app.append(h('div', { class: 'top' },
       h('div', { class: 'top-hero' },
         h('div', { class: 'top-logo' }, h('span', { class: 'logo-mark' }), h('span', null, '配信者の', h('b', null, '物差し'))),
-        h('p', { class: 'top-catch' }, '配信者がお題を物差しのどこに置いたか、視聴者が当てる。', h('br'), '誰が一番わかっているか、みんなのシンクロ率は何%か。')),
+        h('p', { class: 'top-catch' }, 'お題に配信者が何点をつけるか、視聴者がスマホで当てる。', h('br'), '誰が一番わかっているか、みんなのシンクロ率は何%か。')),
       h('div', { class: 'top-cards' },
         h('div', { class: 'top-card' },
           h('h2', null, '視聴者として参加'),

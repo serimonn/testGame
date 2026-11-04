@@ -102,7 +102,9 @@
       if (o.labels && i % 10 === 0) ticks.append(h('b', { style: { left: i + '%' } }, i));
     }
     const el = h('div', { class: 'ruler' },
-      h('div', { class: 'ends' }, h('span', { class: 'endL' }, scale ? scale.left : ''), h('span', { class: 'endR' }, scale ? scale.right : '')),
+      h('div', { class: 'ends' },
+        h('span', { class: 'endL' }, scale ? [h('b', null, '0'), ' ' + scale.left] : ''),
+        h('span', { class: 'endR' }, scale ? [h('b', null, '100'), ' ' + scale.right] : '')),
       h('div', { class: 'bar' }, ticks, h('div', { class: 'marks' })));
     return el;
   }

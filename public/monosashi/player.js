@@ -76,7 +76,7 @@
         input.addEventListener('keydown', e => { if (e.key === 'Enter') go(); });
         const el = h('div', { class: 'pv-card' },
           h('div', { class: 'pv-logo' }, '配信者の', h('b', null, '物差し')),
-          h('p', { class: 'pv-lead' }, '配信者がお題を物差しのどこに置いたかを当てるゲームです。近いほど高得点。'),
+          h('p', { class: 'pv-lead' }, '配信者がお題に何点をつけたかを当てるゲームです。0〜100 のどこかを予想して、近いほど高得点。'),
           h('label', { class: 'pv-label' }, '表示名(配信に出ます)'),
           input, err, btn,
           h('p', { class: 'pv-fine' }, `参加コード ${st.code}`));
@@ -93,9 +93,9 @@
           h('div', { class: 'pv-sub' }, `あなた:${st.me.name}(名前は試合の結果で配信に出ます)`),
           cnt,
           h('ol', { class: 'pv-rules' },
-            h('li', null, '配信者がお題を物差しのどこに置くかを決める'),
-            h('li', null, 'あなたはその数字をスライダーで予想して「決定」'),
-            h('li', null, '差3以内で「ぴったり!」10点、10以内6点、20以内3点')));
+            h('li', null, 'お題と、0 と 100 が何を表すかが出ます(例:0 = 冷たい、100 = 熱い)'),
+            h('li', null, '配信者が何点にするかを予想して、スライダーで選んで「決定」'),
+            h('li', null, '点数:差が3以内は10点(ぴったり!)、10以内は6点、20以内は3点、それより離れたら0点')));
         return { el, update() {
           cnt.textContent = `いま ${st.playerCount}人が参加しています`;
         } };
@@ -133,6 +133,7 @@
           h('div', { class: 'pv-gtop' },
             h('div', { class: 'pv-round' }, `ラウンド ${st.round} / ${st.totalRounds}`),
             h('div', { class: 'pv-topic' }, m.item),
+            h('div', { class: 'pv-ask' }, '配信者は何点にした?'),
             mini, timer),
           h('div', { class: 'pv-gbottom' }, state, sl.el, btn));
         return {
@@ -155,7 +156,7 @@
         return { el: h('div', { class: 'pv-card center' },
           h('div', { class: 'pv-round' }, `ラウンド ${st.round} / ${st.totalRounds}`),
           h('div', { class: 'pv-topic' }, m ? m.item : ''),
-          m ? h('div', { class: 'pv-sub' }, `${m.scale.left} 〜 ${m.scale.right}`) : null,
+          m ? h('div', { class: 'pv-sub' }, `0 = ${m.scale.left} 〜 100 = ${m.scale.right}`) : null,
           h('div', { class: 'pv-big small' }, late ? '次のラウンドから予想できます' : 'みんなが予想中…'),
           specNote()) };
       },

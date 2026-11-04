@@ -88,7 +88,7 @@
         const el = h('div', { class: 'pn-card prepare' },
           h('div', { class: 'pn-small' }, `ラウンド ${round} / ${m.totalRounds} ・ 答えはあなただけに見えています`),
           h('div', { class: 'pn-topic' }, m.item),
-          h('div', { class: 'pn-scale' }, h('span', null, '← ' + m.scale.left), h('span', null, m.scale.right + ' →')),
+          h('div', { class: 'pn-scale' }, h('span', null, '0 = ' + m.scale.left), h('span', null, '100 = ' + m.scale.right)),
           sl.el, btn, timer,
           h('p', null, '予想済み ', cnt),
           h('p', { class: 'pn-note' }, '迷っている理由は話してOK。数字は口に出さないでください。時間切れのときは、いまのスライダーの位置で決まります(触っていなければ50)。'));
