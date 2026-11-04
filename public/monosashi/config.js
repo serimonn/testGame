@@ -4,8 +4,8 @@
   root.MONO_CFG = {
     // 1試合
     totalRounds: 5,
-    prepareSeconds: 10,         // 配信者が答えを置く時間。未操作なら DEFAULT_ANSWER で確定
-    guessSeconds: 20,           // 予想の時間。早期締切はしない(遅延の大きい人が声のヒントを聞けるように)
+    guessSeconds: 20,           // お題を出してから締切まで。配信者の答えと視聴者の予想を同時に置く。早期締切はしない
+                                // 配信者が最後まで決定しなければ、その時のスライダーの位置(触っていなければ DEFAULT_ANSWER)
     revealAnimSeconds: 10,      // 答え合わせの演出。この間は「次へ」を受け付けない
     talkSeconds: 15,            // 演出の後に話す時間。「次へ」で短縮できる
     DEFAULT_ANSWER: 50,
@@ -21,7 +21,7 @@
     MAX_PER_IP: 3,              // 同じ接続元IPから1試合で参加できる人数(スマホ回線は IP を共有するため1にしない)
     undoKickSeconds: 5,
     KICK_HOURS: 12,             // 除外した端末を再参加させない時間
-    IDLE_PAUSE_ROUNDS: 3,       // 配信者が prepare で連続して操作しなかったら一時停止
+    IDLE_PAUSE_ROUNDS: 3,       // 配信者が答えに連続して触らなかったら、次のラウンドの前で一時停止
     // 通信
     GUESS_PER_SEC: 2,           // guess と host_answer は1接続あたり毎秒この回数まで
     COUNT_INTERVAL_MS: 1000,    // 予想済み人数の送信間隔の下限

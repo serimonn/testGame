@@ -40,7 +40,7 @@
     head.append(logo, roundChip, codeBox);
     let qrFor = '';
     function updateHead() {
-      roundChip.classList.toggle('hidden', !(st.round > 0 && ['prepare', 'guessing', 'reveal'].includes(st.phase)));
+      roundChip.classList.toggle('hidden', !(st.round > 0 && ['guessing', 'reveal'].includes(st.phase)));
       roundChip.textContent = `ラウンド ${st.round} / ${st.totalRounds}`;
       codeBox.classList.toggle('hidden', !st.code || st.phase === 'lobby' || st.phase === 'closed' || st.phase === 'connecting');
       codeBox.querySelector('.cb-code').textContent = st.code;
@@ -102,29 +102,15 @@
           },
         };
       },
-      prepare() {
-        const r = ruler(null, { labels: false });
-        r.classList.add('ruler-think');
-        const needle = h('div', { class: 'think-needle' }, h('span', null, '?'));
-        r.querySelector('.marks').append(needle);
-        play('start');
-        return {
-          el: h('div', { class: 'sc-prepare' },
-            h('div', { class: 'pr-round' }, `ラウンド ${st.round}`),
-            h('div', { class: 'pr-msg' }, '配信者が考え中', h('span', { class: 'dots' }, h('i', null, '.'), h('i', null, '.'), h('i', null, '.'))),
-            r,
-            h('div', { class: 'pr-hint' }, 'お題はこのあと、みんなのスマホに同時に出ます')),
-        };
-      },
       guessing() {
         const m = st.open;
-        if (!m) return SCENES.prepare();
+        if (!m) return SCENES.connecting();
         const r = ruler(m.scale);
         const bar = h('div', { class: 'tm-fill' });
         const sec = h('div', { class: 'tm-sec' });
         const cnt = h('div', { class: 'gs-count' });
         let lastSec = -1;
-        play('v_start');
+        play('start'); setTimeout(() => play('v_start'), 250);
         return {
           el: h('div', { class: 'sc-guess' },
             h('div', { class: 'topic-label' }, 'お題'),

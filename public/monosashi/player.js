@@ -42,7 +42,6 @@
       if (s === 'none') return 'join';
       if (st.phase === 'lobby') return 'lobby';
       if (st.paused) return 'paused';
-      if (st.phase === 'prepare') return 'prepare';
       if (st.phase === 'guessing') return canGuess() ? 'guess' : 'watchGuess';
       if (st.phase === 'reveal') return 'reveal';
       if (st.phase === 'result') return 'result';
@@ -100,14 +99,6 @@
         return { el, update() {
           cnt.textContent = `いま ${st.playerCount}人が参加しています`;
         } };
-      },
-      prepare() {
-        const late = st.me && st.me.status === 'active' && (st.me.firstRound || 1) > st.round;
-        return { el: h('div', { class: 'pv-card center' },
-          h('div', { class: 'pv-round' }, `ラウンド ${st.round} / ${st.totalRounds}`),
-          h('div', { class: 'pv-big' }, '配信者が考え中…'),
-          h('div', { class: 'pv-sub' }, late ? '次のラウンドから予想できます' : 'まもなくお題が出ます'),
-          specNote(), scoreLine()) };
       },
       guess() {
         const m = st.open;
@@ -224,10 +215,6 @@
           h('div', { class: 'pv-sub' }, '配信者が「もう1回」を押すと、次の試合が始まります')) };
       },
     };
-    function scoreLine() {
-      if (!st.me || !st.me.roundsPlayed) return null;
-      return h('div', { class: 'pv-score' }, `いまの平均 ${(+st.me.avg || 0).toFixed(1)}点`);
-    }
 
     // 見出し:名前と音のオンオフ
     const sndBtn = h('button', { class: 'pv-snd', 'aria-label': '音', onclick: () => {

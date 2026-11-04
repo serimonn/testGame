@@ -43,7 +43,7 @@
       connecting: () => ({ el: h('div', { class: 'pn-card' }, h('p', null, 'サーバーにつないでいます…')) }),
       paused: () => ({ el: h('div', { class: 'pn-card' },
         h('h3', null, '一時停止中'),
-        h('p', null, '3ラウンド続けて答えが置かれなかったので止めました。'),
+        h('p', null, '3ラウンド続けて答えに触れなかったので、次のラウンドの前で止めました。'),
         h('button', { class: 'btn primary big', onclick: () => send({ t: 'host_resume' }) }, '再開する')) }),
       lobby() {
         const start = h('button', { class: 'btn primary big', onclick: () => send({ t: 'host_start' }) }, '試合を始める');
@@ -58,51 +58,50 @@
           note.textContent = n ? `${n}人で始めます。途中からも参加できます。` : 'まだ誰もいません。0人でも始められます(シンクロ率は出ません)。';
         } };
       },
-      prepare() {
-        const p = st.prepare;
-        if (!p) return PANELS.connecting();
-        let lastSent = 0, pend = null, decided = false;
+      // お題は視聴者と同時に出る。配信者は同じ締切までに答えを置く
+      guessing() {
+        const m = st.open;
+        if (!m) return PANELS.connecting();
+        const round = m.round, ha = st.hostAnswer && st.hostAnswer.round === round ? st.hostAnswer : null;
+        let lastSent = 0, pend = null, decided = !!(ha && ha.final);
         const sendLive = v => {
           const now = Date.now(), wait = 520 - (now - lastSent);
           clearTimeout(pend);
-          if (wait <= 0) { lastSent = now; send({ t: 'host_answer', round: p.round, value: v, final: false }); }
+          if (wait <= 0) { lastSent = now; send({ t: 'host_answer', round, value: v, final: false }); }
           else pend = setTimeout(() => sendLive(sl.get()), wait);
         };
-        const sl = slider(v => { root.Snd.play('tick', { vol: 0.5, rate: 0.8 + v / 250 }); sendLive(v); }, p.answer === null ? C.DEFAULT_ANSWER : p.answer);
+        const sl = slider(v => { if (decided) return; root.Snd.play('tick', { vol: 0.5, rate: 0.8 + v / 250 }); sendLive(v); }, ha && ha.answer !== null ? ha.answer : C.DEFAULT_ANSWER);
         sl.el.classList.add('host-slider');
         const timer = h('div', { class: 'pn-timer' });
+        const cnt = h('b');
+        const btn = h('button', { class: 'btn primary big', onclick: () => decide() }, 'この位置で決定');
+        const lock = () => { decided = true; sl.el.classList.add('locked'); btn.disabled = true; btn.textContent = `${sl.get()} で決定(もう変えられません)`; };
         const decide = () => {
           if (decided) return;
-          decided = true;
           clearTimeout(pend);
-          send({ t: 'host_answer', round: p.round, value: sl.get(), final: true });
-          btn.disabled = true; btn.textContent = '決定しました';
+          send({ t: 'host_answer', round, value: sl.get(), final: true });
+          lock();
           root.Snd.play('submit');
         };
-        const btn = h('button', { class: 'btn primary big', onclick: decide }, 'この位置で決定');
+        if (decided) lock();
         const el = h('div', { class: 'pn-card prepare' },
-          h('div', { class: 'pn-small' }, `ラウンド ${p.round} / ${p.totalRounds} ・ あなただけに見えています`),
-          h('div', { class: 'pn-topic' }, p.item),
-          h('div', { class: 'pn-scale' }, h('span', null, '← ' + p.scale.left), h('span', null, p.scale.right + ' →')),
+          h('div', { class: 'pn-small' }, `ラウンド ${round} / ${m.totalRounds} ・ 答えはあなただけに見えています`),
+          h('div', { class: 'pn-topic' }, m.item),
+          h('div', { class: 'pn-scale' }, h('span', null, '← ' + m.scale.left), h('span', null, m.scale.right + ' →')),
           sl.el, btn, timer,
-          h('p', { class: 'pn-note' }, '本音で置いてください。時間切れのときは、いまのスライダーの位置で決まります(触っていなければ50)。'));
+          h('p', null, '予想済み ', cnt),
+          h('p', { class: 'pn-note' }, '迷っている理由は話してOK。数字は口に出さないでください。時間切れのときは、いまのスライダーの位置で決まります(触っていなければ50)。'));
         setTimeout(() => sl.el.focus(), 50);
         el.addEventListener('keydown', e => { if (e.key === 'Enter') decide(); });
-        return { el, frame() {
-          const l = Clock.left(p.deadline);
-          timer.textContent = `残り ${Math.ceil(l)}秒`;
-          timer.classList.toggle('hurry', l <= 3);
-        } };
-      },
-      guessing() {
-        const m = st.open;
-        const cnt = h('b');
-        const el = h('div', { class: 'pn-card' },
-          h('div', { class: 'pn-small' }, `ラウンド ${st.round} ・ 予想中`),
-          h('div', { class: 'pn-topic small' }, m ? m.item : ''),
-          h('p', null, '予想済み ', cnt),
-          h('p', { class: 'pn-note' }, '答え合わせまで、置いた数字には触れないでください。お題について話すのはOKです。'));
-        return { el, update() { const c = st.count; cnt.textContent = c ? `${c.submitted} / ${c.total}人` : '0人'; } };
+        return {
+          el,
+          update() { const c = st.count; cnt.textContent = c ? `${c.submitted} / ${c.total}人` : '0人'; },
+          frame() {
+            const l = Clock.left(st.deadline);
+            timer.textContent = `残り ${Math.ceil(l)}秒`;
+            timer.classList.toggle('hurry', l <= 5);
+          },
+        };
       },
       reveal() {
         const m = st.reveal;
@@ -187,7 +186,7 @@
     }
 
     function render(msg) {
-      const k = [st.phase, st.round, st.matchId, st.paused, !!st.prepare, !!st.reveal].join(':');
+      const k = [st.phase, st.round, st.matchId, st.paused, !!st.open, !!st.reveal].join(':');
       if (k !== key) { key = k; build(); }
       if (cur && cur.update) cur.update();
       if (!msg || ['lobby', 'snapshot', 'players'].includes(msg.t)) renderList();

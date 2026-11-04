@@ -111,22 +111,6 @@ button { font-family: inherit; font-weight: 800; cursor: pointer; }
 .lb-code-label { font-size: 28px; color: var(--ink2); }
 .lb-code { font-size: 104px; letter-spacing: .12em; line-height: 1; color: var(--coral); }
 
-/* 考え中 */
-.sc-prepare { position: absolute; inset: 0; }
-.pr-round { position: absolute; top: 90px; width: 100%; text-align: center; font-size: 60px; color: var(--teal); }
-.pr-msg { position: absolute; top: 190px; width: 100%; text-align: center; font-size: 110px; }
-.dots i { font-style: normal; display: inline-block; animation: dot 1.2s infinite; }
-.dots i:nth-child(2) { animation-delay: .2s; }
-.dots i:nth-child(3) { animation-delay: .4s; }
-@keyframes dot { 0%, 60%, 100% { transform: translateY(0); } 30% { transform: translateY(-24px); } }
-.sc-prepare .ruler { top: 500px; }
-.ruler-think .ends { display: none; }
-.think-needle { position: absolute; top: -110px; bottom: -14px; width: 0; animation: think 2.8s ease-in-out infinite; }
-.think-needle::before { content: ""; position: absolute; left: -6px; width: 12px; top: 70px; bottom: 0; background: var(--ink2); border-radius: 6px; opacity: .55; }
-.think-needle span { position: absolute; left: -40px; top: -10px; width: 80px; height: 80px; border-radius: 50%; background: var(--ink); color: #fff; display: grid; place-items: center; font-size: 54px; }
-@keyframes think { 0% { left: 18%; } 30% { left: 71%; } 55% { left: 40%; } 80% { left: 86%; } 100% { left: 18%; } }
-.pr-hint { position: absolute; top: 760px; width: 100%; text-align: center; font-size: 36px; color: var(--ink2); }
-
 /* 予想中 */
 .sc-guess { position: absolute; inset: 0; }
 .topic-label { position: absolute; top: 70px; width: 100%; text-align: center; font-size: 40px; color: var(--ink2); }
@@ -299,6 +283,7 @@ button { font-family: inherit; font-weight: 800; cursor: pointer; }
 .sl-fill { position: absolute; left: 0; top: 0; bottom: 0; background: var(--ruler); border-radius: 8px 0 0 8px; }
 .sl-knob { position: absolute; top: 50%; width: 46px; height: 46px; margin: -23px 0 0 -23px; border-radius: 50%; background: var(--coral); border: 4px solid var(--ink); box-shadow: 0 3px 0 var(--ink); }
 .slider.drag .sl-knob { transform: scale(1.15); }
+.slider.locked { pointer-events: none; opacity: .55; }
 .slider:focus-visible { box-shadow: 0 0 0 3px var(--teal); border-radius: 12px; }
 
 /* ---------- 視聴者(スマホ) ---------- */
@@ -393,5 +378,5 @@ button { font-family: inherit; font-weight: 800; cursor: pointer; }
 .toast button { background: var(--ruler); border: 2px solid #fff; border-radius: 10px; padding: 4px 10px; font-size: 14px; }
 
 @media (prefers-reduced-motion: reduce) {
-  .dots i, .think-needle, .hurry .tm-sec, .pv-state.warn { animation: none; }
+  .hurry .tm-sec, .pv-state.warn { animation: none; }
 }

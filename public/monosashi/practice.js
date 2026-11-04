@@ -46,15 +46,17 @@
     });
     function guessFor(b, round) {
       const r = state.rounds[round];
-      const v = Math.round(r.answer + gauss() * b.sd);
+      // 配信者の答えはまだ動いていることがあるので、その時点の位置を読む
+      const base = r.answer === null ? C.DEFAULT_ANSWER : r.answer;
+      const v = Math.round(base + gauss() * b.sd);
       return Math.max(0, Math.min(100, v));
     }
     function onBot(b, m) {
       if (m.t !== 'round_open') return;
       const round = m.round;
       if (Math.random() < 0.08) return; // たまに予想し忘れる
-      later(() => { b.rl = []; engine.onMessage(b, { t: 'guess', round, value: guessFor(b, round) }); }, 1500 + Math.random() * 9000);
-      if (Math.random() < 0.4) later(() => { b.rl = []; engine.onMessage(b, { t: 'guess', round, value: guessFor({ sd: b.sd * 0.6 }, round) }); }, 11000 + Math.random() * 7000);
+      later(() => { b.rl = []; engine.onMessage(b, { t: 'guess', round, value: guessFor(b, round) }); }, 4000 + Math.random() * 8000);
+      if (Math.random() < 0.4) later(() => { b.rl = []; engine.onMessage(b, { t: 'guess', round, value: guessFor({ sd: b.sd * 0.6 }, round) }); }, 13000 + Math.random() * 5500);
     }
     function botJoin(b) {
       conns.push(b);
@@ -66,7 +68,7 @@
     const lateBot = bots[bots.length - 1];
     let lateJoined = false;
     store.on(m => {
-      if (!lateJoined && m.t === 'round_prepare' && m.round === 2) { lateJoined = true; later(() => botJoin(lateBot), 2500); }
+      if (!lateJoined && m.t === 'round_open' && m.round === 2) { lateJoined = true; later(() => botJoin(lateBot), 2500); }
     });
 
     return {

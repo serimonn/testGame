@@ -32,7 +32,7 @@
     const st = {
       code: '', phase: 'connecting', round: 0, totalRounds: C.totalRounds, deadline: null, phaseStart: 0,
       paused: false, matchId: 0, playerCount: 0, spectators: 0, me: null, open: null, reveal: null, result: null,
-      prepare: null, lobby: null, count: null, acked: null, joinError: null, kicked: false, conn: 'connecting',
+      hostAnswer: null, lobby: null, count: null, acked: null, joinError: null, kicked: false, conn: 'connecting',
     };
     const subs = [];
     const S = {
@@ -51,23 +51,17 @@
             if (m.players) { st.playerCount = m.players.count; st.spectators = m.players.spectators; }
             if (m.me !== undefined && m.me !== null) st.me = m.me;
             if (m.lobby) st.lobby = m.lobby;
-            st.prepare = m.prepare || null;
-            if (m.phase === 'prepare' && !m.prepare) st.deadline = null;
+            st.hostAnswer = m.hostAnswer || null;
             break;
           case 'next_match':
             Object.assign(st, { matchId: m.matchId, totalRounds: m.totalRounds, reveal: null, result: null, open: null, round: 0 });
             if (st.me) Object.assign(st.me, { totalPoints: 0, roundsPlayed: 0, avg: 0 });
             break;
-          case 'round_prepare':
-            Object.assign(st, { phase: 'prepare', round: m.round, totalRounds: m.totalRounds, prepare: m, deadline: m.deadline, phaseStart: Clock.now(), open: null, reveal: null, paused: false });
-            break;
-          case 'round_waiting':
-            Object.assign(st, { phase: 'prepare', round: m.round, totalRounds: m.totalRounds, deadline: null, phaseStart: Clock.now(), open: null, reveal: null, paused: false });
-            break;
           case 'round_open':
-            Object.assign(st, { phase: 'guessing', round: m.round, open: m, deadline: m.deadline, phaseStart: Clock.now(), count: null, acked: null, prepare: null });
+            Object.assign(st, { phase: 'guessing', round: m.round, totalRounds: m.totalRounds, open: m, reveal: null, deadline: m.deadline, phaseStart: Clock.now(), count: null, acked: null, paused: false });
             break;
           case 'guess_count': st.count = m; break;
+          case 'host_answer_state': st.hostAnswer = m; break;
           case 'guess_ack': st.acked = m.value; break;
           case 'round_reveal':
             Object.assign(st, { phase: 'reveal', round: m.round, reveal: m, deadline: m.deadline, phaseStart: m.phaseStart });
@@ -89,7 +83,7 @@
           case 'me': if (m.me) st.me = m.me; break;
           case 'kicked': st.kicked = true; if (st.me) st.me.status = 'kicked'; break;
           case 'paused': st.paused = m.paused; break;
-          case 'closed': Object.assign(st, { phase: 'closed', me: null, open: null, reveal: null, result: null, prepare: null }); break;
+          case 'closed': Object.assign(st, { phase: 'closed', me: null, open: null, reveal: null, result: null, hostAnswer: null }); break;
           case 'opened': Object.assign(st, { phase: 'lobby', round: 0, open: null, reveal: null, result: null }); break;
         }
         S.emit(m);

@@ -8,9 +8,9 @@
   function newState(code) {
     return {
       code, hostKeyHash: null,
-      phase: 'lobby',            // lobby | prepare | guessing | reveal | result | closed
+      phase: 'lobby',            // lobby | guessing | reveal | result | closed
       matchId: 0, round: 0, totalRounds: C.totalRounds,
-      phaseStart: 0, phaseDeadline: null, paused: false, idlePrepare: 0,
+      phaseStart: 0, phaseDeadline: null, paused: false, idleRounds: 0,
       topics: [], rounds: {}, players: {}, nextPid: 1,
       lastOpen: null, lastReveal: null, lastResult: null,
       recentTopics: [], syncHistory: [], regulars: {}, kickedDevices: {},
@@ -150,13 +150,14 @@
       };
       if (conn.role === 'control') {
         msg.lobby = this.lobbyMsg();
-        if (s.phase === 'prepare') msg.prepare = this.prepareMsg();
+        if (s.phase === 'guessing') msg.hostAnswer = this.hostAnswerMsg();
       }
       return msg;
     }
-    prepareMsg() {
-      const s = this.s, r = s.rounds[s.round];
-      return { t: 'round_prepare', round: s.round, totalRounds: s.totalRounds, ...topicInfo(s.topics[s.round - 1]), deadline: s.phaseDeadline, now: this.now(), answer: r ? r.answer : null };
+    // 配信者が置いている答え(操作画面にだけ送る)
+    hostAnswerMsg() {
+      const r = this.s.rounds[this.s.round];
+      return { t: 'host_answer_state', round: this.s.round, answer: r ? r.answer : null, final: !!(r && r.answerFinal) };
     }
 
     // ---- 接続
@@ -203,7 +204,7 @@
       s.matchId++;
       s.round = 0;
       s.rounds = {};
-      s.idlePrepare = 0;
+      s.idleRounds = 0;
       s.paused = false;
       s.lastOpen = s.lastReveal = s.lastResult = null;
       s.topics = pickTopics(s.totalRounds, s.recentTopics, this.io.random);
@@ -212,28 +213,20 @@
         p.totalPoints = 0; p.roundsPlayed = 0; p.exact = 0; p.firstRound = 1;
       }
       this.toAll({ t: 'next_match', matchId: s.matchId, totalRounds: s.totalRounds });
-      this.startPrepare(1);
+      this.startRound(1);
     }
 
-    startPrepare(round) {
+    // お題を全員に同時に出す。配信者は視聴者と同じ時間で答えを置く
+    startRound(round) {
       const s = this.s;
       s.round = round;
-      s.rounds[round] = { answer: null, answerFinal: false, guesses: {}, activeAtOpen: [], sync: null };
-      s.lastOpen = s.lastReveal = null;
-      this.setPhase('prepare', C.prepareSeconds);
-      this.send('control', this.prepareMsg());
-      this.send('viewers', { t: 'round_waiting', round, totalRounds: s.totalRounds });
-      this.save();
-    }
-
-    openGuessing() {
-      const s = this.s, r = s.rounds[s.round];
-      if (r.answer === null) r.answer = C.DEFAULT_ANSWER;
-      r.answerFinal = true;
+      const r = s.rounds[round] = { answer: null, answerFinal: false, guesses: {}, activeAtOpen: [], sync: null };
+      s.lastReveal = null;
       r.activeAtOpen = this.actives().filter(p => p.firstRound <= s.round && this.io.online(p.pid)).map(p => p.pid);
       this.setPhase('guessing', C.guessSeconds);
       s.lastOpen = { t: 'round_open', round: s.round, totalRounds: s.totalRounds, ...topicInfo(s.topics[s.round - 1]), deadline: s.phaseDeadline, now: this.now() };
       this.toAll(s.lastOpen);
+      this.send('control', this.hostAnswerMsg());
       this.lastCountSent = '';
       this.sendCount(true);
       this.save();
@@ -262,6 +255,9 @@
 
     reveal() {
       const s = this.s, r = s.rounds[s.round];
+      // 配信者が触らなかったら DEFAULT_ANSWER。続けば next() で一時停止する
+      if (r.answer === null) { r.answer = C.DEFAULT_ANSWER; s.idleRounds++; } else s.idleRounds = 0;
+      r.answerFinal = true;
       const counted = new Set(r.activeAtOpen.concat(Object.keys(r.guesses)));
       const guesses = [];
       for (const pid of counted) {
@@ -329,9 +325,9 @@
       const s = this.s;
       if (!s.paused) return;
       s.paused = false;
-      s.idlePrepare = 0;
+      s.idleRounds = 0;
       this.toAll({ t: 'paused', paused: false });
-      this.startPrepare(s.round);
+      this.next();
     }
 
     onAlarm() {
@@ -340,21 +336,15 @@
         if (s.phaseDeadline && !s.paused) this.io.setAlarm(s.phaseDeadline);
         return;
       }
-      if (s.phase === 'prepare') {
-        const r = s.rounds[s.round];
-        if (r.answer === null) {
-          s.idlePrepare++;
-          if (s.idlePrepare >= C.IDLE_PAUSE_ROUNDS) return this.pause();
-        } else s.idlePrepare = 0;
-        this.openGuessing();
-      } else if (s.phase === 'guessing') this.reveal();
+      if (s.phase === 'guessing') this.reveal();
       else if (s.phase === 'reveal') this.next();
     }
 
     next() {
       const s = this.s;
       if (s.round >= s.totalRounds) this.finish();
-      else this.startPrepare(s.round + 1);
+      else if (s.idleRounds >= C.IDLE_PAUSE_ROUNDS && !s.paused) this.pause();
+      else this.startRound(s.round + 1);
     }
 
     // 参加。ip の数と除外を確かめる
@@ -394,7 +384,7 @@
     nextRound() {
       const s = this.s;
       if (s.phase === 'lobby' || s.phase === 'result' || s.phase === 'closed') return 1;
-      return s.phase === 'prepare' ? s.round : s.round + 1;
+      return s.round + 1;
     }
     sendMe(p) {
       this.send('p:' + p.pid, { t: 'me', me: this.meOf(p.pid) });
@@ -448,13 +438,15 @@
     },
     host_answer(conn, m) {
       const s = this.s;
-      if (s.phase !== 'prepare' || m.round !== s.round || s.paused) return;
+      if (s.phase !== 'guessing' || m.round !== s.round || s.paused) return;
+      const r = s.rounds[s.round];
+      if (r.answerFinal) return; // 決定したら変えられない
       const v = Math.round(Number(m.value));
       if (!Number.isFinite(v) || v < 0 || v > 100) return;
       if (!m.final && !this.rateOk(conn)) return;
-      s.rounds[s.round].answer = v;
-      if (m.final) { s.idlePrepare = 0; this.openGuessing(); }
-      else this.save();
+      r.answer = v;
+      if (m.final) { r.answerFinal = true; this.send('control', this.hostAnswerMsg()); }
+      this.save();
     },
     host_next(conn, m) {
       const s = this.s;
