@@ -57,7 +57,7 @@
   function Night(town) {
     this.town = town;
     this.rank = rankOf(town);
-    this.hyakki = this.rank >= 3 && town.night % C.HYAKKI_EVERY === 0;   // 百鬼夜行の夜
+    this.hyakki = this.rank >= C.HYAKKI_RANK && town.night % C.HYAKKI_EVERY === 0;   // 百鬼夜行の夜
     this.f = 0; this.started = false; this.over = false; this.done = false;
     this.objs = town.objs.map(o => ({
       ref: o, type: o.type, c: o.c, r: o.r, kind: o.type === 'lantern' ? 'lantern' : isStall(o.type) ? 'stall' : 'build',
@@ -161,7 +161,7 @@
     const homes = [{ tile: idx(C.GATE.c, C.GATE.r), n: C.GATE_WORKERS }];
     for (const o of this.objs) {
       if (o.type !== 'nagaya') continue;
-      o.dry = this.rank >= 2 && !this.inArea('ido', o.c, o.r);
+      o.dry = this.rank >= C.WATER_RANK && !this.inArea('ido', o.c, o.r);
       if (o.dry) continue;
       const side = DIR4.map(([dx, dy]) => [o.c + dx, o.r + dy]).find(([c, r]) => this.isRoad(c, r) && this.fire[idx(c, r)]);
       o.home = !!side;
@@ -259,8 +259,8 @@
   };
   P.open = function (o) { return o.kind === 'stall' && o.cap > 0 && this.lvl(o.c, o.r) > 0 && o.sitF <= 0 && !this.soldOut(o); };
   // 宿場からは、大店は蔵から運ばれた品物がないと売れない
-  P.soldOut = function (o) { return o.type === 'oodana' && this.rank >= 2 && o.stock <= 0; };
-  P.useStock = function (o) { if (o.type === 'oodana' && this.rank >= 2) o.stock = Math.max(0, o.stock - 1); };
+  P.soldOut = function (o) { return o.type === 'oodana' && this.rank >= C.STOCK_RANK && o.stock <= 0; };
+  P.useStock = function (o) { if (o.type === 'oodana' && this.rank >= C.STOCK_RANK) o.stock = Math.max(0, o.stock - 1); };
 
   // ---------- 夜の始まり ----------
   P.start = function () {
@@ -308,7 +308,7 @@
     while (this.spawns.length && this.spawns[0].f <= this.f) { this.spawns.shift(); this.spawnHuman(); }
     for (const a of this.humans) this.stepHuman(a);
     for (const a of this.yokai) this.stepYokai(a);
-    if (this.rank >= 2) this.stepKura();
+    if (this.rank >= C.STOCK_RANK) this.stepKura();
     if (this.carts.some(a => a.gone)) this.carts = this.carts.filter(a => !a.gone);
     if (this.humans.some(a => a.gone)) this.humans = this.humans.filter(a => !a.gone);
     if (this.yokai.some(a => a.gone)) this.yokai = this.yokai.filter(a => !a.gone);
@@ -677,7 +677,12 @@
     const before = rankOf(town);
     town.best = Math.max(town.best || 0, night.earn.visitors);
     const after = rankOf(town);
-    if (after > before) sum.rankUp = after;
+    if (after > before) {
+      // 上がった格ごとに祝い金
+      sum.rankUp = after; sum.gift = 0;
+      for (let k = before + 1; k <= after; k++) sum.gift += C.RANKS[k].need * C.RANK_GIFT;
+      town.money += sum.gift;
+    }
     town.history.push(sum);
     town.night++;
     return sum;

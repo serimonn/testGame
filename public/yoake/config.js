@@ -15,7 +15,7 @@
     OIL_PER_LANTERN: 70, OIL_PER_SEC: 1, OIL_BUY: 60, OIL_BUY_COST: 20,
     RELIGHT_COST: 10,
     // 値段(一定)。取り壊すと全額戻る(置き直しを気軽にする)
-    PRICE: { road: 5, lantern: 30, koyatai: 50, yatai: 250, oodana: 1200, nagaya: 120, chaya: 300, shibai: 1500, taiko: 400, yashiro: 400, bansho: 300, joya: 80, ido: 200, kura: 800, aburaya: 1000 },
+    PRICE: { road: 5, lantern: 30, koyatai: 50, yatai: 250, oodana: 1200, nagaya: 120, chaya: 200, shibai: 1500, taiko: 400, yashiro: 400, bansho: 300, joya: 80, ido: 200, kura: 800, aburaya: 1000, yadoya: 3000 },
     REFUND: 1,
     START_MONEY: 200,
     // 働き手。門からは村の人が通ってくる。長屋1軒に何人住むか。道で何マスまで通えるか
@@ -47,15 +47,23 @@
     BUILD_R: 3,
     CHAYA_BUY: 1.4, TAIKO_GAUGE: 2, YASHIRO_PAY: 1.5, YASHIRO_HUMAN: 0.6,
     // 街の格。一晩に来た客の最高記録で上がる。unlock:建てられるようになる物、news:増える困りごと
+    // 1つ目は3夜ほどで届く。上がるたびに祝い金(客の数×RANK_GIFT)が出る
     RANKS: [
       { name: '野原の市', need: 0,   unlock: ['look', 'road', 'lantern', 'koyatai', 'nagaya', 'chaya', 'land', 'demolish'] },
-      { name: '門前町',   need: 30,  unlock: ['yatai', 'shibai', 'taiko', 'bansho'], news: '客が増えて店が混みはじめた。混んだ店は素通りされる。働き手と店を増やそう。芝居小屋で客を大きく増やせる' },
-      { name: '宿場',     need: 80,  unlock: ['oodana', 'ido', 'kura', 'yashiro', 'joya'], news: '長屋は井戸の範囲にないと働き手が出ない。大店は蔵から荷車で品物を運ぶ' },
-      { name: '不夜城',   need: 200, unlock: ['aburaya'], news: '油屋の範囲の提灯は油が長持ちする。5夜ごとに百鬼夜行が来る' },
+      { name: '辻の市',   need: 15,  unlock: ['yatai', 'bansho'], news: '単価の高い屋台が建てられる。番所で妖怪を遠ざけられる' },
+      { name: '門前町',   need: 25,  unlock: ['taiko', 'joya'], news: '客が増えて店が混みはじめた。混んだ店は素通りされる。働き手と店を増やそう' },
+      { name: '宿場町',   need: 40,  unlock: ['shibai', 'yashiro'], news: '芝居小屋で客を大きく増やせる' },
+      { name: '宿場',     need: 60,  unlock: ['ido'], news: 'これからは、井戸の範囲にない長屋は働き手を出さない' },
+      { name: '城下町',   need: 90,  unlock: ['oodana', 'kura'], news: '大店は品物が要る。蔵から荷車で運ぶ' },
+      { name: '大城下',   need: 130, unlock: ['yadoya'], news: '宿屋で遠くから客を呼べる' },
+      { name: '不夜城',   need: 180, unlock: ['aburaya'], news: '油屋の範囲の提灯は油が長持ちする' },
+      { name: '百鬼の都', need: 250, unlock: [], news: 'これからは5夜ごとに百鬼夜行が来る' },
     ],
-    // 宿場から:大店の品物と荷車
+    RANK_GIFT: 15,
+    WATER_RANK: 4, STOCK_RANK: 5, HYAKKI_RANK: 8,   // 井戸、大店の品物、百鬼夜行が始まる格
+    // 城下町から:大店の品物と荷車
     OODANA_STOCK: 8, CART_LOAD: 12, CART_EVERY: 300, CART_SPEED: 0.8,
-    // 不夜城から:油屋と百鬼夜行
+    // 油屋と百鬼夜行
     ABURAYA_OIL: 0.3, HYAKKI_EVERY: 5, HYAKKI_CAP: 3, HYAKKI_GAUGE: 0.5,
     // 止め(F)と揺れ
     STOP_YOKAI_BUY: 4, STOP_EAT: 6, SHAKE_EAT: 12,
@@ -74,6 +82,7 @@
   // 建物。visitors:名所として毎晩呼ぶ客の数で、目当てにされる重みでもある。staff:要る働き手
   root.BUILDS = {
     nagaya:  { name: '長屋',     desc: '働き手が3人住む。宿場からは井戸の範囲が要る' },
+    yadoya:  { name: '宿屋',     desc: '遠くから客を呼ぶ。客が毎晩+20人。働き手4人', visitors: 20, staff: 4 },
     chaya:   { name: '茶屋',     desc: '名所。客が毎晩+4人。働き手2人。範囲の店に人がよく寄る', visitors: 4, staff: 2 },
     shibai:  { name: '芝居小屋', desc: '大きな名所。客が毎晩+12人。働き手6人', visitors: 12, staff: 6 },
     ido:     { name: '井戸',     desc: '範囲の長屋に水を届ける' },

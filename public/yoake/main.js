@@ -41,6 +41,7 @@
     { k: 'ido', name: '井戸', spr: SPR.ido },
     { k: 'kura', name: '蔵', spr: SPR.kura },
     { k: 'aburaya', name: '油屋', spr: SPR.aburaya },
+    { k: 'yadoya', name: '宿屋', spr: SPR.yadoya },
     { k: 'land', name: '土地', ic: '⛰', sep: true },
     { k: 'demolish', name: '取り壊し', ic: '⛏' },
   ];
@@ -52,7 +53,7 @@
     koyatai: '小屋台:単価¥10。働き手1人', yatai: '屋台:単価¥30。働き手2人', oodana: '大店:単価¥100。働き手4人',
     land: '土地:藪の区画を買って開く。門から遠いほど高い',
     ido: '井戸:範囲の長屋に水を届ける。宿場からは水のない長屋から働き手が出ない',
-    kura: '蔵:荷車で大店に品物を運ぶ。働き手2人。宿場からは大店に品物が要る',
+    kura: '蔵:荷車で大店に品物を運ぶ。働き手2人。城下町からは大店に品物が要る',
     aburaya: '油屋:範囲の提灯は油の減りが遅い。働き手2人', demolish: '取り壊し:払った銭が全部戻る。ドラッグでまとめて',
   };
   const WHY = { land: '藪の中', money: '銭が足りない', used: 'ふさがっている', fire: '火の通った道から遠い', out: '' };
@@ -140,7 +141,7 @@
       <p><b>働き手:</b>店は働き手がいないと開かない。働き手は門から2人通ってくるほか、長屋に3人ずつ住み、道でつながった近い店に就く。働き手の数だけ同時に客をさばける。</p>
       <p><b>客:</b>人は門から入り、名所(茶屋、芝居小屋)や道の奥を目指して歩き、途中の店で一晩に${C.WALLET}回まで買う。</p>
       <p><b>店の札:</b>提灯の札は明るい店で、人だけが買う。目玉の札(鬼火つき)は薄暗い店で、人も妖怪も買う。×は暗くて閉店。人の形に斜線は人手なし。</p>
-      <p><b>街の格:</b>一晩に来る客の数で上がる(門前町30人、宿場80人、不夜城200人)。上がると建てられる物が増え、困りごとも増える。客は毎晩少しずつ増え、働き手のそろった茶屋や芝居小屋で増やせる。上の帯に、次の格まであと何人かが出る。押すと客の内訳が出る。</p>
+      <p><b>街の格:</b>一晩に来る客の数で上がる(${C.RANKS.slice(1).map(r => r.name + r.need + '人').join('、')})。上がるたびに祝い金が出る。上がると建てられる物が増え、困りごとも増える。客は毎晩少しずつ増え、働き手のそろった茶屋や芝居小屋で増やせる。上の帯に、次の格まであと何人かが出る。押すと客の内訳が出る。</p>
       <p><b>夜:</b>人に売ると賑わいが溜まり、満タンで妖怪が勝手に来る。妖怪は薄暗い店でだけ、単価の${C.YOKAI_PAY}倍で買い、何をするかは気まぐれ。</p>
       <p><b>夜の操作:</b>提灯をタップで火を細くする・戻す(細くすると隣が薄暗くなる)。喰っている妖怪、居座る妖怪はタップで追い払う。喰われた提灯はタップで点け直す(¥${C.RELIGHT_COST})。</p>
       <p><b>地図:</b>ドラッグで動かす。ピンチかホイールで拡大縮小。</p>
@@ -200,7 +201,7 @@
         <span>喰われた提灯 <b>${s.eaten}</b></span><span>追い払い <b>${s.shoo}</b></span>
       </div>
       ${whims ? `<div class="stat" style="font-size:12px">妖怪の気まぐれ:${whims}</div>` : ''}
-      ${s.rankUp ? `<div class="rankup"><b>格が上がった:${C.RANKS[s.rankUp].name}</b><br>新しく建てられる:${C.RANKS[s.rankUp].unlock.map(k => (BUILDS[k] || STALLS[k] || {}).name || k).join('、')}<br><small>${C.RANKS[s.rankUp].news}</small></div>` : ''}
+      ${s.rankUp ? `<div class="rankup"><b>格が上がった:${C.RANKS[s.rankUp].name}</b>${s.gift ? ` 祝い金 ¥${s.gift}` : ''}<br>${C.RANKS[s.rankUp].unlock.length ? `新しく建てられる:${C.RANKS[s.rankUp].unlock.map(k => (BUILDS[k] || STALLS[k] || {}).name || k).join('、')}<br>` : ''}<small>${C.RANKS[s.rankUp].news}</small></div>` : ''}
       ${goal}
       <div class="row"><button class="btn" data-go="prep">朝の普請へ<small>稼ぎで街を広げる</small></button></div>`, 'dock');
     $ui.querySelectorAll('[data-count]').forEach(el => {

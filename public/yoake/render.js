@@ -284,7 +284,7 @@
     }
   }
 
-  const BSPR = { nagaya: 'nagaya', chaya: 'chayaB', shibai: 'shibai', taiko: 'taiko', yashiro: 'yashiro', bansho: 'bansho', joya: 'joya', ido: 'ido', kura: 'kura', aburaya: 'aburaya' };
+  const BSPR = { yadoya: 'yadoya', nagaya: 'nagaya', chaya: 'chayaB', shibai: 'shibai', taiko: 'taiko', yashiro: 'yashiro', bansho: 'bansho', joya: 'joya', ido: 'ido', kura: 'kura', aburaya: 'aburaya' };
   function drawObj(n, o, t, glows, after) {
     const bx = o.c * T, by = o.r * T + T;
     if (o.kind === 'build') {
@@ -329,7 +329,7 @@
         spr(f, bx + 12 + Math.round(Math.sin(t / 20 + o.r) * 1.5), top + at - 2 + Math.round(Math.sin(t / 13 + o.c) * 2), false, 0.9);
       }
       // 大店の品物の残り
-      if (o.type === 'oodana' && n.rank >= 2) { const k = Math.min(1, o.stock / (C.OODANA_STOCK * 2)); x.fillStyle = '#1a1420'; x.fillRect(bx + 1, top + 1, 2, 10); x.fillStyle = k > 0.25 ? '#9be07a' : '#ff6a3d'; x.fillRect(bx + 1, top + 1 + Math.round(10 * (1 - k)), 2, Math.round(10 * k)); }
+      if (o.type === 'oodana' && n.rank >= C.STOCK_RANK) { const k = Math.min(1, o.stock / (C.OODANA_STOCK * 2)); x.fillStyle = '#1a1420'; x.fillRect(bx + 1, top + 1, 2, 10); x.fillStyle = k > 0.25 ? '#9be07a' : '#ff6a3d'; x.fillRect(bx + 1, top + 1 + Math.round(10 * (1 - k)), 2, Math.round(10 * k)); }
       if (o.sitF > 0) { x.fillStyle = '#1a1420'; x.fillRect(bx + 2, top - 2, 12, 2); x.fillStyle = '#b48ae0'; x.fillRect(bx + 2, top - 2, Math.ceil(12 * o.sitF / C.SIT_F), 2); }
     });
   }
