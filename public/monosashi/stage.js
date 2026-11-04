@@ -44,7 +44,7 @@
       roundChip.textContent = `ラウンド ${st.round} / ${st.totalRounds}`;
       codeBox.classList.toggle('hidden', !st.code || st.phase === 'lobby' || st.phase === 'closed' || st.phase === 'connecting');
       codeBox.querySelector('.cb-code').textContent = st.code;
-      codeBox.querySelector('.cb-count').textContent = `参加 ${st.players.length}人`;
+      codeBox.querySelector('.cb-count').textContent = `参加 ${st.playerCount}人`;
       if (st.code && qrFor !== st.code) { qrFor = st.code; root.QR.draw(qrSmall, root.UI.joinUrl(st.code), 150, { quiet: 2 }); }
     }
 
@@ -69,7 +69,7 @@
       lobby() {
         const qr = h('canvas', { class: 'qr-big' });
         if (st.code) root.QR.draw(qr, root.UI.joinUrl(st.code), 380, { quiet: 2 });
-        const list = h('div', { class: 'lb-chips' });
+        const dots = h('div', { class: 'lb-dots' });
         const count = h('div', { class: 'lb-count' });
         const el = h('div', { class: 'sc-lobby' },
           h('div', { class: 'lb-left' },
@@ -78,28 +78,27 @@
               h('li', null, '配信者がお題を物差しのどこに置くか、本音で決める'),
               h('li', null, 'みんなはスマホで、その数字を予想する'),
               h('li', null, '近いほど高得点。5ラウンドで「一番の理解者」が決まる')),
-            h('div', { class: 'lb-players' }, count, list)),
+            h('div', { class: 'lb-players' }, count, dots)),
           h('div', { class: 'lb-join card' },
             h('div', { class: 'lb-join-title' }, 'スマホで参加'),
             qr,
             h('div', { class: 'lb-code-label' }, '参加コード'),
             h('div', { class: 'lb-code' }, st.code || '-----')));
+        // 名前は出さず、参加した人数だけ点で見せる(名前が出るのは試合の結果だけ)
         return {
           el,
           update() {
-            count.textContent = `参加者 ${st.players.length} / ${C.maxPlayers}` + (st.spectators ? `(観戦 ${st.spectators})` : '');
-            const names = st.players.map(p => p.pid + p.name + p.online).join();
-            if (list.dataset.k !== names) {
-              const old = new Set((list.dataset.k || '').split(','));
-              list.dataset.k = names;
-              list.innerHTML = '';
-              for (const p of st.players) {
-                const chip = h('span', { class: 'chip' + (p.online ? '' : ' off'), style: { '--c': colorOf(p.pid) } }, p.name);
-                if (!old.has(p.pid + p.name + p.online) && list.dataset.k) chip.classList.add('pop');
-                list.append(chip);
-              }
-              if (!st.players.length) list.append(h('span', { class: 'empty' }, 'QRコードを読んで参加してね'));
+            const n = st.playerCount;
+            count.innerHTML = '';
+            count.append(h('span', null, '参加者 ', h('b', null, n), '人', st.spectators ? h('small', null, `(観戦 ${st.spectators})`) : null));
+            const shown = Math.min(n, 100);
+            while (dots.children.length < shown) {
+              const i = dots.children.length;
+              dots.append(h('i', { class: dots.dataset.ready ? 'pop' : '', style: { background: colorOf('p' + (i + 1)) } }));
             }
+            while (dots.children.length > shown) dots.lastChild.remove();
+            dots.dataset.ready = '1';
+            dots.classList.toggle('empty', !n);
           },
         };
       },
@@ -137,7 +136,7 @@
           update() {
             const c = st.count;
             cnt.innerHTML = '';
-            cnt.append(h('span', null, '予想済み '), h('b', null, c ? c.submitted : 0), h('span', null, ` / ${c ? c.total : st.players.length}人`));
+            cnt.append(h('span', null, '予想済み '), h('b', null, c ? c.submitted : 0), h('span', null, ` / ${c ? c.total : st.playerCount}人`));
           },
           frame() {
             const left = Clock.left(st.deadline), total = C.guessSeconds;
@@ -160,22 +159,23 @@
       const r = ruler(op ? op.scale : { left: '', right: '' });
       r.classList.add('ruler-reveal');
       const marks = r.querySelector('.marks');
-      // 名前札の段を決める(文字数から幅を見積もる)
+      // 予想の点を近い値ごとに上へ積む(みんなの予想の山が見える)。名前は出さない
       const items = m.guesses.slice().sort((a, b) => a.value - b.value);
-      const rowsEnd = [];
-      const placed = items.map(g => {
-        const w = (Math.min(12, [...g.name].length) * 30 + 44) / RULER_W * 100;
-        let left = g.value - w / 2, row = 0;
-        while (rowsEnd[row] !== undefined && rowsEnd[row] > left - 0.6) row++;
-        rowsEnd[row] = left + w;
-        return { g, row };
+      const n0 = items.length;
+      const D = n0 <= 15 ? 44 : n0 <= 40 ? 32 : 24, dPct = D / RULER_W * 100;
+      const lastAt = [];
+      const lv = items.map(g => {
+        let k = 0;
+        while (lastAt[k] !== undefined && g.value - lastAt[k] < dPct) k++;
+        lastAt[k] = g.value;
+        return k;
       });
-      const dots = placed.map(({ g, row }) => {
+      const sp = Math.min(D * 0.92, 300 / Math.max(1, Math.max(0, ...lv)));
+      r.style.setProperty('--d', D + 'px');
+      r.style.setProperty('--sp', sp + 'px');
+      const dots = items.map((g, i) => {
         const exact = g.diff <= m.exactDiff;
-        const dot = h('div', { class: 'gdot', style: { left: g.value + '%', '--c': colorOf(g.playerId), '--row': row } },
-          h('div', { class: 'g-tag' }, h('span', { class: 'g-name' }, g.name), h('span', { class: 'g-val' }, g.value), h('span', { class: 'g-pts' }, '+' + g.points)),
-          h('div', { class: 'g-stem' }),
-          h('div', { class: 'g-ball' }));
+        const dot = h('div', { class: 'gdot', style: { left: g.value + '%', '--c': colorOf(g.playerId), '--lv': lv[i] } }, h('div', { class: 'g-ball' }));
         marks.append(dot);
         return { dot, g, exact };
       });
@@ -185,13 +185,17 @@
       marks.append(ans);
       const syncNum = h('b', null, '0');
       const syncBox = h('div', { class: 'sync-box' }, h('div', { class: 'sb-label' }, 'みんなのシンクロ率'), h('div', { class: 'sb-num' }, syncNum, h('span', null, '%')), h('div', { class: 'sb-word' }, m.sync === null ? '予想がありませんでした' : m.syncWord));
-      const rankBox = h('div', { class: 'rank-box' }, h('div', { class: 'rb-label' }, m.last ? '最終ラウンド終了' : '現在の順位'),
-        ...m.ranking.filter(x => !x.ref).slice(0, 3).map(x => h('div', { class: 'rb-row' }, h('span', { class: 'rb-rank' }, x.rank + '位'), h('span', { class: 'rb-name' }, x.name), h('span', { class: 'rb-avg' }, x.avg.toFixed(1) + '点'))),
-        m.ranking.some(x => !x.ref) ? null : h('div', { class: 'rb-none' }, '順位はまだありません'),
-        m.guesses.some(g => g.diff <= m.exactDiff) ? h('div', { class: 'rb-exact' }, 'ぴったり:' + m.guesses.filter(g => g.diff <= m.exactDiff).map(g => g.name).join('、')) : null);
+      const tiers = C.scoreTiers.map(t => t[1]).concat([0]);
+      const per = tiers.map(p => m.guesses.filter(g => g.points === p).length);
+      const most = Math.max(1, ...per);
+      const rankBox = h('div', { class: 'rank-box' }, h('div', { class: 'rb-label' }, '今回の得点'),
+        ...tiers.map((p, i) => h('div', { class: 'rb-row' },
+          h('span', { class: 'rb-rank' }, i === 0 ? 'ぴったり' : p + '点'),
+          h('span', { class: 'rb-bar' }, h('i', { style: { width: (per[i] / most * 100) + '%' }, class: i === 0 ? 'top' : '' })),
+          h('span', { class: 'rb-avg' }, per[i] + '人'))));
       const title = h('div', { class: 'rv-title' }, '答え合わせ!');
-      const exacts = dots.filter(d => d.exact).map(d => d.g.name);
-      const banner = h('div', { class: 'rv-banner' }, h('b', null, 'ぴったり!'), h('span', null, exacts.join('、')));
+      const exacts = dots.filter(d => d.exact).length;
+      const banner = h('div', { class: 'rv-banner' }, h('b', null, 'ぴったり!'), h('span', null, `${exacts}人`));
       const el = h('div', { class: 'sc-reveal' },
         h('div', { class: 'rv-topic' }, h('small', null, 'お題'), op ? op.item : ''),
         title, banner, r,
@@ -203,7 +207,13 @@
       const ev = [];
       ev.push({ t: TL.title, fn: late => { title.classList.add('show'); if (!late) { play('reveal'); play('v_reveal'); } } });
       // 点は左から順に落とす(左から右へ視線が流れ、最後に答えが落ちる)
-      dots.forEach((d, i) => ev.push({ t: TL.dotsFrom + i * gap, fn: late => { d.dot.classList.add('in'); if (late) d.dot.classList.add('still'); else play('pop', { rate: 0.9 + i * 0.05 }); } }));
+      // 大人数でも音は20回まで
+      const every = Math.max(1, Math.ceil(n / 20));
+      dots.forEach((d, i) => ev.push({ t: TL.dotsFrom + i * gap, fn: late => {
+        d.dot.classList.add('in');
+        if (late) d.dot.classList.add('still');
+        else if (i % every === 0) play('pop', { rate: 0.9 + Math.min(1, i / n) * 0.8 });
+      } }));
       ev.push({ t: TL.roll, fn: late => { title.classList.remove('show'); if (!late) { r.classList.add('tremble'); play('roll'); } } });
       ev.push({ t: TL.needle, fn: late => {
         r.classList.remove('tremble');
@@ -218,7 +228,7 @@
         let any = false;
         for (const d of dots) {
           d.dot.classList.add('scored');
-          if (d.exact) { d.dot.classList.add('exact'); any = true; if (!late) burst(d.dot); }
+          if (d.exact) { d.dot.classList.add('exact'); any = true; if (!late && exacts <= 12) burst(d.dot.firstChild); }
         }
         if (any && !late) {
           play('exact'); setTimeout(() => play('v_exact'), 120);
@@ -260,7 +270,7 @@
           h('div', { class: 'rs-head' }, '本日の一番の理解者'),
           first, firstSub,
           h('div', { class: 'rs-others' }, others.map(x => h('div', { class: 'rs-row' }, h('span', { class: 'rs-rank' }, x.rank + '位'), h('span', { class: 'rs-name' }, x.name), h('span', { class: 'rs-avg' }, x.avg.toFixed(1) + '点')))),
-          refs.length ? h('div', { class: 'rs-refs' }, '参考(3ラウンド未満):' + refs.map(x => x.name).join('、')) : null),
+          h('div', { class: 'rs-refs' }, `参加 ${m.ranking.length}人` + (refs.length ? `(うち${C.minRoundsForRanking}ラウンド未満の参考 ${refs.length}人)` : ''))),
         h('div', { class: 'rs-right card' },
           h('div', { class: 'rs-sync-label' }, '今日のシンクロ率'),
           h('div', { class: 'rs-sync' }, syncNum, h('span', null, m.syncToday === null ? '' : '%')),

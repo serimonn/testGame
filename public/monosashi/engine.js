@@ -11,7 +11,6 @@
       phase: 'lobby',            // lobby | prepare | guessing | reveal | result | closed
       matchId: 0, round: 0, totalRounds: C.totalRounds,
       phaseStart: 0, phaseDeadline: null, paused: false, idlePrepare: 0,
-      approvalRequired: C.APPROVAL_DEFAULT,
       topics: [], rounds: {}, players: {}, nextPid: 1,
       lastOpen: null, lastReveal: null, lastResult: null,
       recentTopics: [], syncHistory: [], regulars: {}, kickedDevices: {},
@@ -103,22 +102,23 @@
 
     playerList(filter) { return Object.values(this.s.players).filter(filter || (() => true)); }
     actives() { return this.playerList(p => p.status === 'active'); }
-    publicPlayers() {
-      return this.actives().map(p => ({ pid: p.pid, name: p.name, online: !!this.io.online(p.pid) }));
-    }
+    // 名前は配信者の操作画面と試合の結果にだけ出す。全員へは人数だけ送る
     playersMsg() {
-      return { t: 'players', list: this.publicPlayers(), spectators: this.playerList(p => p.status === 'spectator').length, max: C.maxPlayers };
+      return { t: 'players', count: this.actives().length, spectators: this.playerList(p => p.status === 'spectator').length, max: C.maxPlayers };
     }
     lobbyMsg() {
       const row = p => ({ pid: p.pid, name: p.name, status: p.status, online: !!this.io.online(p.pid), kickedAt: p.kickedAt, roundsPlayed: p.roundsPlayed, totalPoints: p.totalPoints });
-      return {
-        t: 'lobby', approvalRequired: this.s.approvalRequired, max: C.maxPlayers,
-        pending: this.playerList(p => p.status === 'pending').map(row),
-        players: this.playerList(p => p.status !== 'pending').map(row),
-      };
+      return { t: 'lobby', max: C.maxPlayers, players: this.playerList(p => p.status !== 'kicked').map(row) };
     }
+    // 人数の知らせは最大 COUNT_INTERVAL_MS に1回(大人数が一度に入っても全員への送信が増えすぎないように)
     notifyPlayers() {
       this.send('control', this.lobbyMsg());
+      const wait = (this.lastPlayersAt || 0) + C.COUNT_INTERVAL_MS - this.now();
+      if (wait > 0) {
+        if (!this.playersTimer) this.playersTimer = this.io.later(() => { this.playersTimer = null; this.lastPlayersAt = this.now(); this.toAll(this.playersMsg()); }, wait);
+        return;
+      }
+      this.lastPlayersAt = this.now();
       this.toAll(this.playersMsg());
     }
     meOf(pid) {
@@ -141,7 +141,7 @@
       const msg = {
         t: 'snapshot', now: this.now(), code: s.code, phase: s.phase, round: s.round, totalRounds: s.totalRounds,
         deadline: s.phaseDeadline, phaseStart: s.phaseStart, paused: s.paused, matchId: s.matchId,
-        approvalRequired: s.approvalRequired, players: this.playersMsg(),
+        players: this.playersMsg(),
         me: conn.role === 'player' ? this.meOf(conn.pid) : null,
         open: s.phase === 'guessing' || s.phase === 'reveal' ? s.lastOpen : null,
         reveal: s.phase === 'reveal' ? s.lastReveal : null,
@@ -274,14 +274,14 @@
         p.totalPoints += pts;
         p.roundsPlayed++;
         if (has && diff <= C.EXACT_DIFF) p.exact++;
-        if (has) guesses.push({ playerId: pid, name: p.name, value, diff, points: pts });
+        if (has) guesses.push({ playerId: pid, value, diff, points: pts });
       }
       r.sync = syncOf(guesses.map(g => g.value), r.answer);
       const minNow = Math.min(C.minRoundsForRanking, Math.ceil(s.round * 0.6));
       this.setPhase('reveal', C.revealAnimSeconds + C.talkSeconds);
       s.lastReveal = {
         t: 'round_reveal', round: s.round, totalRounds: s.totalRounds, answer: r.answer, guesses, sync: r.sync, syncWord: syncWord(r.sync),
-        ranking: rank(this.rankable(), minNow), deadline: s.phaseDeadline, now: this.now(), phaseStart: s.phaseStart,
+        ranking: rank(this.rankable(), minNow).map(({ name, ...r }) => r), deadline: s.phaseDeadline, now: this.now(), phaseStart: s.phaseStart,
         exactDiff: C.EXACT_DIFF, last: s.round >= s.totalRounds,
       };
       this.toAll(s.lastReveal);
@@ -369,14 +369,13 @@
       const kickedUntil = s.kickedDevices[deviceId];
       let p = this.playerList(x => x.deviceId === deviceId)[0];
       if (p) {
-        // 同じ端末:名前だけ直す(承認後は配信に出た名前を変えさせない)
-        if (p.status === 'pending') p.name = name;
+        // 同じ端末:試合の外なら名前を直せる
+        if (s.phase === 'lobby' || s.phase === 'result') p.name = name;
       } else {
         const fromIp = conn.ipHash ? this.playerList(x => x.ipHash === conn.ipHash && x.status !== 'kicked').length : 0;
         let status;
         if (kickedUntil && kickedUntil > now) status = 'kicked';
         else if (fromIp >= C.MAX_PER_IP) status = 'spectator';
-        else if (s.approvalRequired) status = 'pending';
         else status = this.actives().length >= C.maxPlayers ? 'spectator' : 'active';
         const pid = 'p' + s.nextPid++;
         p = s.players[pid] = {
@@ -386,7 +385,7 @@
       }
       conn.pid = p.pid;
       const reason = p.status === 'kicked' ? 'kicked' : p.status === 'spectator' ? 'full' : undefined;
-      this.send(conn, { t: 'join_result', status: p.status === 'kicked' ? 'spectator' : p.status, playerId: p.pid, reason, name: p.name });
+      this.send(conn, { t: 'join_result', status: p.status, playerId: p.pid, reason, name: p.name });
       this.send(conn, this.snapshot(conn));
       this.notifyPlayers();
       this.save();
@@ -396,12 +395,6 @@
       const s = this.s;
       if (s.phase === 'lobby' || s.phase === 'result' || s.phase === 'closed') return 1;
       return s.phase === 'prepare' ? s.round : s.round + 1;
-    }
-    activate(p) {
-      p.status = this.actives().length >= C.maxPlayers ? 'spectator' : 'active';
-      p.firstRound = Math.max(p.firstRound || 1, this.nextRound());
-      if (this.s.phase === 'lobby' || this.s.phase === 'result') p.firstRound = 1;
-      this.send('p:' + p.pid, { t: 'join_result', status: p.status, playerId: p.pid, reason: p.status === 'spectator' ? 'full' : undefined, name: p.name });
     }
     sendMe(p) {
       this.send('p:' + p.pid, { t: 'me', me: this.meOf(p.pid) });
@@ -425,14 +418,6 @@
   };
 
   const HOST = {
-    host_approve(conn, m) {
-      const p = this.s.players[m.playerId];
-      if (!p || p.status !== 'pending') return;
-      this.activate(p);
-      this.sendMe(p);
-      this.notifyPlayers();
-      this.save();
-    },
     host_kick(conn, m) {
       const s = this.s, p = s.players[m.playerId];
       if (!p || p.status === 'kicked') return;
@@ -455,11 +440,6 @@
       this.send('p:' + p.pid, { t: 'join_result', status: p.status, playerId: p.pid, name: p.name });
       this.sendMe(p);
       this.notifyPlayers();
-      this.save();
-    },
-    host_set_approval_mode(conn, m) {
-      this.s.approvalRequired = !!m.required;
-      this.send('control', this.lobbyMsg());
       this.save();
     },
     host_start() {

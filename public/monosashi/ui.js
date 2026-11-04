@@ -31,7 +31,7 @@
   function createStore() {
     const st = {
       code: '', phase: 'connecting', round: 0, totalRounds: C.totalRounds, deadline: null, phaseStart: 0,
-      paused: false, matchId: 0, players: [], spectators: 0, me: null, open: null, reveal: null, result: null,
+      paused: false, matchId: 0, playerCount: 0, spectators: 0, me: null, open: null, reveal: null, result: null,
       prepare: null, lobby: null, count: null, acked: null, joinError: null, kicked: false, conn: 'connecting',
     };
     const subs = [];
@@ -48,7 +48,7 @@
               paused: m.paused, matchId: m.matchId, open: m.open, reveal: m.reveal, result: m.result, count: null,
               acked: m.me ? m.me.guess : null,
             });
-            if (m.players) { st.players = m.players.list; st.spectators = m.players.spectators; }
+            if (m.players) { st.playerCount = m.players.count; st.spectators = m.players.spectators; }
             if (m.me !== undefined && m.me !== null) st.me = m.me;
             if (m.lobby) st.lobby = m.lobby;
             st.prepare = m.prepare || null;
@@ -77,7 +77,7 @@
             }
             break;
           case 'match_result': Object.assign(st, { phase: 'result', result: m, deadline: null }); break;
-          case 'players': st.players = m.list; st.spectators = m.spectators; break;
+          case 'players': st.playerCount = m.count; st.spectators = m.spectators; break;
           case 'lobby': st.lobby = m; break;
           case 'join_result':
             if (m.status === 'rejected') st.joinError = m.reason;

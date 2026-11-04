@@ -40,7 +40,6 @@
       if (st.phase === 'closed') return 'closed';
       const s = status();
       if (s === 'none') return 'join';
-      if (s === 'pending') return 'pending';
       if (st.phase === 'lobby') return 'lobby';
       if (st.paused) return 'paused';
       if (st.phase === 'prepare') return 'prepare';
@@ -87,21 +86,19 @@
           else if (st.joinError === 'closed') err.textContent = 'いまは部屋が閉じています';
         } };
       },
-      pending: () => ({ el: msgCard('配信者の承認を待っています', `表示名:${st.me.name}`) }),
       lobby() {
-        const list = h('div', { class: 'pv-chips' });
+        const cnt = h('div', { class: 'pv-sub' });
         const el = h('div', { class: 'pv-card' },
           h('div', { class: 'pv-big' }, '配信者が始めるのを待っています'),
           specNote(),
-          h('div', { class: 'pv-sub' }, `あなた:${st.me.name}`),
-          h('div', { class: 'pv-label' }, '参加者'), list,
+          h('div', { class: 'pv-sub' }, `あなた:${st.me.name}(名前は試合の結果で配信に出ます)`),
+          cnt,
           h('ol', { class: 'pv-rules' },
             h('li', null, '配信者がお題を物差しのどこに置くかを決める'),
             h('li', null, 'あなたはその数字をスライダーで予想して「決定」'),
             h('li', null, '差3以内で「ぴったり!」10点、10以内6点、20以内3点')));
         return { el, update() {
-          list.innerHTML = '';
-          for (const p of st.players) list.append(h('span', { class: 'chip' + (st.me && p.pid === st.me.pid ? ' me' : ''), style: { '--c': colorOf(p.pid) } }, p.name));
+          cnt.textContent = `いま ${st.playerCount}人が参加しています`;
         } };
       },
       prepare() {

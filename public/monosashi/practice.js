@@ -38,8 +38,10 @@
     later(() => engine.onConnect(host), 0);
 
     // CPU の視聴者:配信者の答えを、理解度(標準偏差)だけずらして予想する。途中で決め直すこともある
-    const bots = C.PRACTICE_BOTS.map(([name, sd], i) => {
-      const b = { role: 'player', deviceId: 'bot-' + i, ipHash: 'bot' + i, name, sd, recv: m => onBot(b, m) };
+    const [sdMin, sdMax] = C.PRACTICE_BOT_SD;
+    const bots = Array.from({ length: C.PRACTICE_BOT_COUNT }, (_, i) => {
+      const name = C.PRACTICE_NAMES[i % C.PRACTICE_NAMES.length] + (i >= C.PRACTICE_NAMES.length ? Math.floor(i / C.PRACTICE_NAMES.length) + 1 : '');
+      const b = { role: 'player', deviceId: 'bot-' + i, ipHash: 'bot' + i, name, sd: sdMin + Math.random() * (sdMax - sdMin), recv: m => onBot(b, m) };
       return b;
     });
     function guessFor(b, round) {
@@ -59,8 +61,8 @@
       engine.onConnect(b);
       engine.onMessage(b, { t: 'join', name: b.name });
     }
-    // ロビーで5人が順に入る。最後の1人は2ラウンド目から途中参加
-    bots.slice(0, -1).forEach((b, i) => later(() => botJoin(b), 1200 + i * 1100));
+    // ロビーで順に入る(はじめは間をあけ、あとは次々に)。最後の1人は2ラウンド目から途中参加
+    bots.slice(0, -1).forEach((b, i) => later(() => botJoin(b), 800 + Math.min(i, 4) * 700 + Math.max(0, i - 4) * 250));
     const lateBot = bots[bots.length - 1];
     let lateJoined = false;
     store.on(m => {

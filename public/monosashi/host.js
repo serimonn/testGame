@@ -54,7 +54,7 @@
           start, note,
           o.practice ? null : setupGuide());
         return { el, update() {
-          const n = st.players.length;
+          const n = st.playerCount;
           note.textContent = n ? `${n}人で始めます。途中からも参加できます。` : 'まだ誰もいません。0人でも始められます(シンクロ率は出ません)。';
         } };
       },
@@ -153,29 +153,33 @@
         h('a', { href: bUrl, target: '_blank', class: 'pn-link' }, '配信用画面を別のタブで開いて確かめる'));
     }
 
-    // ---- 参加者の一覧
-    const approvalBox = h('input', { type: 'checkbox', onchange: e => send({ t: 'host_set_approval_mode', required: e.target.checked }) });
+    // ---- 参加者の一覧(新しく入った人が上)。名前は試合の結果で配信に出るので、不適切な名前はここで除外する
+    const search = h('input', { class: 'pn-search', type: 'search', placeholder: '名前で探す', oninput: () => renderRows() });
+    const listHead = h('div', { class: 'pn-sub' });
+    const rows = h('div', { class: 'pn-rows' });
+    listBox.append(listHead, h('div', { class: 'pn-hint' }, '名前は試合の結果だけ配信に出ます。困った名前は「除外」で外せます(その配信中は戻れません)。'), search, rows);
     function renderList() {
       const lb = st.lobby;
-      listBox.innerHTML = '';
       if (!lb) return;
-      approvalBox.checked = lb.approvalRequired;
-      listBox.append(h('label', { class: 'pn-approval' }, approvalBox, '参加を承認制にする(名前を見てから配信に出す)'));
-      if (lb.pending.length) {
-        listBox.append(h('div', { class: 'pn-sub' }, `承認待ち ${lb.pending.length}人`));
-        for (const p of lb.pending) listBox.append(h('div', { class: 'pl-row pending' },
-          h('span', { class: 'pl-name' }, p.name),
-          h('button', { class: 'btn small primary', onclick: () => send({ t: 'host_approve', playerId: p.pid }) }, '承認'),
-          h('button', { class: 'btn small ghost', onclick: () => kick(p) }, '除外')));
-      }
       const act = lb.players.filter(p => p.status === 'active'), spec = lb.players.filter(p => p.status === 'spectator');
-      listBox.append(h('div', { class: 'pn-sub' }, `参加者 ${act.length} / ${lb.max}` + (spec.length ? `・観戦 ${spec.length}` : '')));
-      for (const p of act.concat(spec)) listBox.append(h('div', { class: 'pl-row' + (p.online ? '' : ' off') },
+      listHead.textContent = `参加者 ${act.length} / ${lb.max}` + (spec.length ? `・観戦 ${spec.length}` : '');
+      search.classList.toggle('hidden', lb.players.length < 8);
+      renderRows();
+    }
+    function renderRows() {
+      const lb = st.lobby;
+      if (!lb) return;
+      const q = search.value.trim().toLowerCase();
+      const list = lb.players.filter(p => !q || p.name.toLowerCase().includes(q))
+        .sort((a, b) => parseInt(b.pid.slice(1), 10) - parseInt(a.pid.slice(1), 10));
+      rows.innerHTML = '';
+      for (const p of list) rows.append(h('div', { class: 'pl-row' + (p.online ? '' : ' off') },
         h('i', { class: 'pl-dot', style: { background: colorOf(p.pid) } }),
         h('span', { class: 'pl-name' }, p.name, p.status === 'spectator' ? h('small', null, ' 観戦') : null, p.online ? null : h('small', null, ' 切断中')),
         h('span', { class: 'pl-pts' }, p.roundsPlayed ? (p.totalPoints / p.roundsPlayed).toFixed(1) + '点' : ''),
         h('button', { class: 'btn small ghost', onclick: () => kick(p) }, '除外')));
-      if (!act.length && !lb.pending.length) listBox.append(h('div', { class: 'pl-empty' }, 'まだ参加者はいません'));
+      if (!lb.players.length) rows.append(h('div', { class: 'pl-empty' }, 'まだ参加者はいません'));
+      else if (!list.length) rows.append(h('div', { class: 'pl-empty' }, '見つかりません'));
     }
     function kick(p) {
       send({ t: 'host_kick', playerId: p.pid });
