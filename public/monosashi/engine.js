@@ -273,17 +273,18 @@
         if (has) guesses.push({ playerId: pid, value, diff, points: pts });
       }
       r.sync = syncOf(guesses.map(g => g.value), r.answer);
-      const minNow = Math.min(C.minRoundsForRanking, Math.ceil(s.round * 0.6));
+      const minNow = Math.min(this.minRounds(), Math.ceil(s.round * C.RANK_RATIO));
       this.setPhase('reveal', C.revealAnimSeconds + C.talkSeconds);
       s.lastReveal = {
         t: 'round_reveal', round: s.round, totalRounds: s.totalRounds, answer: r.answer, guesses, sync: r.sync, syncWord: syncWord(r.sync),
         ranking: rank(this.rankable(), minNow).map(({ name, ...r }) => r), deadline: s.phaseDeadline, now: this.now(), phaseStart: s.phaseStart,
-        exactDiff: C.EXACT_DIFF, last: s.round >= s.totalRounds,
+        exactDiff: C.EXACT_DIFF, last: s.round >= s.totalRounds, minRounds: this.minRounds(),
       };
       this.toAll(s.lastReveal);
       this.send('control', this.lobbyMsg());
       this.save();
     }
+    minRounds() { return Math.ceil(this.s.totalRounds * C.RANK_RATIO); }
     rankable() {
       return this.playerList(p => p.status === 'active' || (p.status === 'spectator' && p.roundsPlayed > 0));
     }
@@ -296,7 +297,7 @@
         s.syncHistory.push({ matchId: s.matchId, endedAt: this.now(), sync: syncToday });
         s.syncHistory = s.syncHistory.slice(-C.SYNC_HISTORY_MAX);
       }
-      const ranking = rank(this.rankable(), C.minRoundsForRanking);
+      const ranking = rank(this.rankable(), this.minRounds());
       for (const row of ranking) {
         const p = s.players[row.pid];
         const reg = s.regulars[p.deviceId] || (s.regulars[p.deviceId] = { lastName: p.name, totalPoints: 0, matches: 0 });
@@ -306,7 +307,7 @@
       if (regs.length > 500) s.regulars = Object.fromEntries(regs.slice(-500));
       this.setPhase('result', 0);
       s.lastResult = {
-        t: 'match_result', matchId: s.matchId, ranking, syncToday, syncWord: syncWord(syncToday),
+        t: 'match_result', matchId: s.matchId, ranking, minRounds: this.minRounds(), syncToday, syncWord: syncWord(syncToday),
         syncHistory: s.syncHistory.slice(-C.SYNC_HISTORY_SHOW).map(h => h.sync), now: this.now(),
       };
       this.toAll(s.lastResult);
@@ -430,6 +431,14 @@
       this.send('p:' + p.pid, { t: 'join_result', status: p.status, playerId: p.pid, name: p.name });
       this.sendMe(p);
       this.notifyPlayers();
+      this.save();
+    },
+    // ラウンド数は試合の外でだけ変えられる
+    host_set_rounds(conn, m) {
+      const s = this.s, n = Number(m.rounds);
+      if (!['lobby', 'result', 'closed'].includes(s.phase) || !C.ROUND_CHOICES.includes(n)) return;
+      s.totalRounds = n;
+      this.toAll({ t: 'rounds', totalRounds: n });
       this.save();
     },
     host_start() {

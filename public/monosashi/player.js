@@ -178,7 +178,7 @@
             h('div', null, `あなたの予想 ${mine.value} ・ 差 ${mine.diff}`),
             h('div', { class: 'pv-pts' }, `+${mine.points}点`))
             : h('div', { class: 'pv-diff' }, counted ? '予想しなかったので0点' : '今回は観戦'),
-          row ? h('div', { class: 'pv-rank' }, row.ref ? `平均 ${row.avg.toFixed(1)}点(順位は${C.minRoundsForRanking}ラウンド目から)` : `現在 ${row.rank}位 ・ 平均 ${row.avg.toFixed(1)}点`) : null,
+          row ? h('div', { class: 'pv-rank' }, row.ref ? `平均 ${row.avg.toFixed(1)}点(順位は${m.minRounds}ラウンド目から)` : `現在 ${row.rank}位 ・ 平均 ${row.avg.toFixed(1)}点`) : null,
           h('div', { class: 'pv-sync' }, m.sync === null ? '' : `みんなのシンクロ率 ${m.sync}%(${m.syncWord})`));
         const el = h('div', { class: 'pv-card' },
           h('div', { class: 'pv-round' }, `ラウンド ${st.round} ・ 答え合わせ`),

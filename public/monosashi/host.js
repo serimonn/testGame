@@ -51,9 +51,10 @@
         const el = h('div', { class: 'pn-card' },
           h('h3', null, '参加を待っています'),
           h('p', null, '配信画面のQRコードか参加コードから、視聴者がスマホで入ります。'),
-          start, note,
+          roundPicker(), start, note,
           o.practice ? null : setupGuide());
         return { el, update() {
+          syncPicker();
           const n = st.playerCount;
           note.textContent = n ? `${n}人で始めます。途中からも参加できます。` : 'まだ誰もいません。0人でも始められます(シンクロ率は出ません)。';
         } };
@@ -121,6 +122,7 @@
       result() {
         return { el: h('div', { class: 'pn-card' },
           h('h3', null, '試合終了'),
+          roundPicker(),
           h('button', { class: 'btn primary big', onclick: () => send({ t: 'host_rematch' }) }, 'もう1回(同じ参加者で)'),
           h('button', { class: 'btn ghost', onclick: () => { if (confirm('部屋を閉じます。参加者の一覧も空になります。')) send({ t: 'host_close' }); } }, '終了して部屋を閉じる')) };
       },
@@ -131,6 +133,18 @@
           h('button', { class: 'btn primary big', onclick: () => send({ t: 'host_open' }) }, 'もう一度部屋を開く')) };
       },
     };
+
+    // ラウンド数の選択。押すとすぐサーバーへ送り、返ってきた値で表示を合わせる
+    let pickerBtns = [];
+    function roundPicker() {
+      pickerBtns = C.ROUND_CHOICES.map(n => h('button', { class: 'seg', onclick: () => send({ t: 'host_set_rounds', rounds: n }) }, n + '問'));
+      const box = h('div', { class: 'pn-rounds' }, h('span', { class: 'pn-small' }, 'ラウンド数'), h('div', { class: 'segs' }, pickerBtns));
+      syncPicker();
+      return box;
+    }
+    function syncPicker() {
+      pickerBtns.forEach((b, i) => b.classList.toggle('on', C.ROUND_CHOICES[i] === st.totalRounds));
+    }
 
     function setupGuide() {
       const bUrl = root.UI.broadcastUrl(st.code);
@@ -189,6 +203,7 @@
       const k = [st.phase, st.round, st.matchId, st.paused, !!st.open, !!st.reveal].join(':');
       if (k !== key) { key = k; build(); }
       if (cur && cur.update) cur.update();
+      syncPicker();
       if (!msg || ['lobby', 'snapshot', 'players'].includes(msg.t)) renderList();
     }
     store.on(render);

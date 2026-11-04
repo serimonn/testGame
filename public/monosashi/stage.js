@@ -77,7 +77,7 @@
             h('ol', { class: 'lb-rules' },
               h('li', null, '配信者がお題を物差しのどこに置くか、本音で決める'),
               h('li', null, 'みんなはスマホで、その数字を予想する'),
-              h('li', null, '近いほど高得点。5ラウンドで「一番の理解者」が決まる')),
+              h('li', null, h('span', null, '近いほど高得点。', h('span', { class: 'lb-rounds' }), 'ラウンドで「一番の理解者」が決まる'))),
             h('div', { class: 'lb-players' }, count, dots)),
           h('div', { class: 'lb-join card' },
             h('div', { class: 'lb-join-title' }, 'スマホで参加'),
@@ -88,6 +88,7 @@
         return {
           el,
           update() {
+            el.querySelector('.lb-rounds').textContent = st.totalRounds;
             const n = st.playerCount;
             count.innerHTML = '';
             count.append(h('span', null, '参加者 ', h('b', null, n), '人', st.spectators ? h('small', null, `(観戦 ${st.spectators})`) : null));
@@ -248,15 +249,21 @@
       const ranked = m.ranking.filter(x => !x.ref), refs = m.ranking.filter(x => x.ref);
       const firsts = ranked.filter(x => x.rank === 1);
       const others = ranked.filter(x => x.rank !== 1).slice(0, 4);
-      const first = h('div', { class: 'rs-first' }, firsts.length ? firsts.map(x => h('div', { class: 'rs-fname' }, x.name)) : h('div', { class: 'rs-fname none' }, '該当者なし'));
-      const firstSub = h('div', { class: 'rs-fsub' }, firsts.length ? `平均 ${firsts[0].avg.toFixed(1)}点 ・ ぴったり ${firsts[0].exact}回` : '3ラウンド以上予想した人がいませんでした');
+      // 名前は省略せず、カードの幅に収まる大きさまで文字を小さくする(全角1、半角0.6文字として数える)
+      const NAME_W = 860;
+      const widthOf = t => [...t].reduce((a, ch) => a + (ch.charCodeAt(0) < 0x2000 ? 0.6 : 1), 0);
+      const showFirsts = firsts.slice(0, 3), maxFs = showFirsts.length >= 3 ? 90 : showFirsts.length === 2 ? 120 : 150;
+      const nameEl = x => h('div', { class: 'rs-fname', style: { fontSize: Math.max(48, Math.min(maxFs, Math.floor(NAME_W / Math.max(1, widthOf(x.name))))) + 'px' } }, x.name);
+      const first = h('div', { class: 'rs-first' }, firsts.length ? showFirsts.map(nameEl) : h('div', { class: 'rs-fname none' }, '該当者なし'),
+        firsts.length > 3 ? h('div', { class: 'rs-fmore' }, `ほか ${firsts.length - 3}人が同点`) : null);
+      const firstSub = h('div', { class: 'rs-fsub' }, firsts.length ? `平均 ${firsts[0].avg.toFixed(1)}点 ・ ぴったり ${firsts[0].exact}回` : `${m.minRounds}ラウンド以上予想した人がいませんでした`);
       const syncNum = h('b', null, '0');
       const el = h('div', { class: 'sc-result' },
         h('div', { class: 'rs-left card' },
           h('div', { class: 'rs-head' }, '本日の一番の理解者'),
           first, firstSub,
           h('div', { class: 'rs-others' }, others.map(x => h('div', { class: 'rs-row' }, h('span', { class: 'rs-rank' }, x.rank + '位'), h('span', { class: 'rs-name' }, x.name), h('span', { class: 'rs-avg' }, x.avg.toFixed(1) + '点')))),
-          h('div', { class: 'rs-refs' }, `参加 ${m.ranking.length}人` + (refs.length ? `(うち${C.minRoundsForRanking}ラウンド未満の参考 ${refs.length}人)` : ''))),
+          h('div', { class: 'rs-refs' }, `参加 ${m.ranking.length}人` + (refs.length ? `(うち${m.minRounds}ラウンド未満の参考 ${refs.length}人)` : ''))),
         h('div', { class: 'rs-right card' },
           h('div', { class: 'rs-sync-label' }, '今日のシンクロ率'),
           h('div', { class: 'rs-sync' }, syncNum, h('span', null, m.syncToday === null ? '' : '%')),

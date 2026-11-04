@@ -3,7 +3,8 @@
 (function (root) {
   root.MONO_CFG = {
     // 1試合
-    totalRounds: 5,
+    totalRounds: 5,             // ラウンド数の初期値。配信者がロビーと結果画面で ROUND_CHOICES から選べる
+    ROUND_CHOICES: [3, 5, 7, 10],
     guessSeconds: 20,           // お題を出してから締切まで。配信者の答えと視聴者の予想を同時に置く。早期締切はしない
                                 // 配信者が最後まで決定しなければ、その時のスライダーの位置(触っていなければ DEFAULT_ANSWER)
     revealAnimSeconds: 10,      // 答え合わせの演出。この間は「次へ」を受け付けない
@@ -12,7 +13,7 @@
     // 得点:差 d が [以下, 点] の順に判定。どれにも入らなければ0点
     scoreTiers: [[3, 10], [10, 6], [20, 3]],
     EXACT_DIFF: 3,              // 「ぴったり!」の差
-    minRoundsForRanking: 3,     // ceil(totalRounds × 0.6)
+    RANK_RATIO: 0.6,            // 順位の対象になるのは ceil(ラウンド数 × これ) ラウンド以上予想した人
     SCALE_MAX_PER_MATCH: 2,     // 1試合で同じ物差しを使う回数の上限
     RECENT_TOPICS: 30,          // 直近に出したお題は避ける
     // 参加

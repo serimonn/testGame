@@ -62,6 +62,7 @@
             break;
           case 'guess_count': st.count = m; break;
           case 'host_answer_state': st.hostAnswer = m; break;
+          case 'rounds': st.totalRounds = m.totalRounds; break;
           case 'guess_ack': st.acked = m.value; break;
           case 'round_reveal':
             Object.assign(st, { phase: 'reveal', round: m.round, reveal: m, deadline: m.deadline, phaseStart: m.phaseStart });
