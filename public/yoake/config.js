@@ -24,6 +24,7 @@
     HUMAN_BASE: 10, HUMAN_PER_NIGHT: 1, HUMAN_SPEED: 0.6, WALLET: 3,
     BUY_BRIGHT: 0.7, BUY_DIM: 0.4, BUY_BACK: 0.5,   // 寄る割合。奥1マスはさらに掛ける
     ROAM_W: 3,                     // 名所でなく、道の奥へ歩く人の重み
+    SPAWN_END: 0.85,               // 客が来るのは夜のこの割合まで(後は帰っていくだけ)
     SERVE_F: 150,                  // 1人に売る時間。働き手1人が同時に1人さばく(一晩に約35人)
     // 賑わい。妖怪1匹に要る目盛り:GAUGE_BASE + 夜ごとに GAUGE_PER_NIGHT、上限 GAUGE_MAX
     GAUGE_BASE: 6, GAUGE_PER_NIGHT: 0.2, GAUGE_MAX: 12,

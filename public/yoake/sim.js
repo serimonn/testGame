@@ -274,7 +274,7 @@
     const h = Math.round(C.HUMAN_BASE + C.HUMAN_PER_NIGHT * (n - 1) + this.sights.reduce((a, s) => a + s.w, 0));
     this.spawns = [];
     // 最初の3人は夜の始めに来る。客を待たせない
-    for (let i = 0; i < h; i++) this.spawns.push({ f: i < 3 ? 40 + i * 150 : Math.floor(rnd(0.03, 0.65) * C.NIGHT_F) });
+    for (let i = 0; i < h; i++) this.spawns.push({ f: i < 3 ? 40 + i * 150 : Math.floor(rnd(0.03, C.SPAWN_END) * C.NIGHT_F) });
     this.spawns.sort((a, b) => a.f - b.f);
     this.roadTiles = []; for (let i = 0; i < N; i++) if (this.fire[i]) this.roadTiles.push(i);
     this.started = true; this.dirty = true;
@@ -312,6 +312,8 @@
     if (this.carts.some(a => a.gone)) this.carts = this.carts.filter(a => !a.gone);
     if (this.humans.some(a => a.gone)) this.humans = this.humans.filter(a => !a.gone);
     if (this.yokai.some(a => a.gone)) this.yokai = this.yokai.filter(a => !a.gone);
+    // 客が来終わって街が空になったら、残りの夜を待たせずに夜明けにする
+    if (!this.over && this.f > 120 && !this.spawns.length && !this.humans.length && !this.yokai.length && !this.carts.length) { this.f = C.NIGHT_F; this.events.push({ t: 'early' }); }
     if (this.f === C.NIGHT_F) {
       this.over = true; this.spawns = [];
       for (const a of this.humans) this.goHome(a);

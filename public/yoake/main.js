@@ -407,6 +407,7 @@
         const nx = C.RANKS[Sim.rankOf(town) + 1];
         if (nx && night.earn.visitors + night.spawns.length >= nx.need) tell('reach' + nx.name, `今夜の客は${nx.need}人を超える。朝に「${nx.name}」に上がる`, 5);
       }
+      if (ev.t === 'early') guide('客が帰りきったので、夜明けを早めた', 3);
       if (ev.t === 'hyakki') guide('百鬼夜行の夜。妖怪がいつもの何倍も来る', 6);
       if (ev.t === 'noyokai') tell('noyokai', '妖怪の来られる暗がりがない。土地を開くか、暗い所を残そう', 6);
     }
