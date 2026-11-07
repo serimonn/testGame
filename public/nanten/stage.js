@@ -175,7 +175,8 @@
       const ans = h('div', { class: 'answer-num', style: { left: m.answer + '%' } }, h('small', null, '答え'), h('b', null, m.answer));
       marks.append(ans);
       const syncNum = h('b', null, '0');
-      const syncBox = h('div', { class: 'sync-box' }, h('div', { class: 'sb-label' }, 'みんなのシンクロ率'), h('div', { class: 'sb-num' }, syncNum, h('span', null, '%')), h('div', { class: 'sb-word' }, m.sync === null ? '予想がありませんでした' : m.syncWord));
+      const syncBox = h('div', { class: 'sync-box' }, h('div', { class: 'sb-label' }, 'みんなのシンクロ率'), h('div', { class: 'sb-num' }, syncNum, h('span', null, '%')), h('div', { class: 'sb-word' }, m.sync === null ? '予想がありませんでした' : m.syncWord),
+        m.syncExcluded ? h('div', { class: 'sb-note' }, `大きく外れた${m.syncExcluded}人を除く`) : null);
       const tiers = C.scoreTiers.map(t => t[1]).concat([0]);
       const per = tiers.map(p => m.guesses.filter(g => g.points === p).length);
       const most = Math.max(1, ...per);

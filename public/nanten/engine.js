@@ -26,11 +26,21 @@
     return 0;
   }
   // シンクロ率 = 予想した人の得点の平均を100点満点にしたもの(全員ぴったりで100%、適当に予想すると約20%)
+  // 荒らし対策:みんなの予想の中央値から SYNC_OUTLIER_RANGE より離れた予想は計算から外す。
+  // ただし外れる人が SYNC_OUTLIER_MAX_SHARE を超えるときは、意見が本当に割れたとみなして全員で計算する。
+  // 返り値 { sync, excluded }(excluded は外した人数。個人の得点には関係しない)
   const MAX_POINTS = C.scoreTiers[0][1];
+  function median(vals) {
+    const v = vals.slice().sort((a, b) => a - b), h = v.length >> 1;
+    return v.length % 2 ? v[h] : (v[h - 1] + v[h]) / 2;
+  }
   function syncOf(vals, answer) {
-    if (!vals.length) return null;
-    const sum = vals.reduce((a, v) => a + points(Math.abs(v - answer)), 0);
-    return Math.round(sum / vals.length / MAX_POINTS * 100);
+    if (!vals.length) return { sync: null, excluded: 0 };
+    const m = median(vals);
+    const near = vals.filter(v => Math.abs(v - m) <= C.SYNC_OUTLIER_RANGE);
+    const use = vals.length - near.length <= vals.length * C.SYNC_OUTLIER_MAX_SHARE ? near : vals;
+    const sum = use.reduce((a, v) => a + points(Math.abs(v - answer)), 0);
+    return { sync: Math.round(sum / use.length / MAX_POINTS * 100), excluded: vals.length - use.length };
   }
   function syncWord(v) {
     if (v === null || v === undefined) return '';
@@ -274,11 +284,12 @@
         if (has && diff <= C.EXACT_DIFF) p.exact++;
         if (has) guesses.push({ playerId: pid, value, diff, points: pts });
       }
-      r.sync = syncOf(guesses.map(g => g.value), r.answer);
+      const so = syncOf(guesses.map(g => g.value), r.answer);
+      r.sync = so.sync;
       const minNow = Math.min(this.minRounds(), Math.ceil(s.round * C.RANK_RATIO));
       this.setPhase('reveal', C.revealAnimSeconds + C.talkSeconds);
       s.lastReveal = {
-        t: 'round_reveal', round: s.round, totalRounds: s.totalRounds, answer: r.answer, guesses, sync: r.sync, syncWord: syncWord(r.sync),
+        t: 'round_reveal', round: s.round, totalRounds: s.totalRounds, answer: r.answer, guesses, sync: r.sync, syncExcluded: so.excluded, syncWord: syncWord(r.sync),
         ranking: rank(this.rankable(), minNow).map(({ name, ...r }) => r), deadline: s.phaseDeadline, now: this.now(), phaseStart: s.phaseStart,
         exactDiff: C.EXACT_DIFF, last: s.round >= s.totalRounds, minRounds: this.minRounds(),
       };
@@ -496,5 +507,5 @@
     },
   };
 
-  root.MonoEngine = { Engine, newState, points, syncOf, syncWord, rank, cleanName, pickTopics, topicInfo };
+  root.MonoEngine = { Engine, newState, points, median, syncOf, syncWord, rank, cleanName, pickTopics, topicInfo };
 })(typeof globalThis !== 'undefined' ? globalThis : window);
