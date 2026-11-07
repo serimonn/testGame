@@ -183,7 +183,7 @@
       const rankBox = h('div', { class: 'rank-box' }, h('div', { class: 'rb-label' }, '今回の得点'),
         ...tiers.map((p, i) => h('div', { class: 'rb-row' },
           h('span', { class: 'rb-rank' }, i === 0 ? 'ぴったり' : p + '点'),
-          h('span', { class: 'rb-bar' }, h('i', { style: { width: (per[i] / most * 100) + '%' }, class: i === 0 ? 'top' : '' })),
+          h('span', { class: 'rb-bar' }, h('i', { style: { width: (per[i] / most * 100) + '%' }, class: i === 0 ? 'rb-exact-bar' : '' })),
           h('span', { class: 'rb-avg' }, per[i] + '人'))));
       const title = h('div', { class: 'rv-title' }, '答え合わせ!');
       const exacts = dots.filter(d => d.exact).length;
@@ -296,7 +296,7 @@
       const ys = v => hgt - pad - (v / 100) * (hgt - pad * 2);
       const pts = vals.map((v, i) => `${xs(i)},${ys(v)}`).join(' ');
       let svg = `<svg viewBox="0 0 ${w} ${hgt + 30}" class="hist">`;
-      for (const g of [50, 75, 100]) svg += `<line x1="${pad}" x2="${w - pad}" y1="${ys(g)}" y2="${ys(g)}" class="grid"/><text x="0" y="${ys(g) + 8}" class="ax">${g}</text>`;
+      for (const g of [0, 50, 100]) svg += `<line x1="${pad}" x2="${w - pad}" y1="${ys(g)}" y2="${ys(g)}" class="grid"/><text x="0" y="${ys(g) + 8}" class="ax">${g}</text>`;
       svg += `<polyline points="${pts}" class="line"/>`;
       vals.forEach((v, i) => {
         const lastOne = i === vals.length - 1;

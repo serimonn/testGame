@@ -103,7 +103,8 @@
     const ticks = h('div', { class: 'ticks' });
     for (let i = 0; i <= 100; i += 5) {
       ticks.append(h('i', { class: i % 50 === 0 ? 'big' : i % 10 === 0 ? 'mid' : '', style: { left: i + '%' } }));
-      if (o.labels && i % 10 === 0) ticks.append(h('b', { style: { left: i + '%' } }, i));
+      // 0 と 100 は両端の宝石に隠れるので、目盛りの数字は 10〜90 だけ(両端は下の「0 冷たい」「100 熱い」で示す)
+      if (o.labels && i % 10 === 0 && i > 0 && i < 100) ticks.append(h('b', { style: { left: i + '%' } }, i));
     }
     const el = h('div', { class: 'ruler' },
       h('div', { class: 'ends' },

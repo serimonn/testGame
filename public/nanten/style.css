@@ -185,7 +185,7 @@ button { font-family: inherit; font-weight: 800; cursor: pointer; }
 .rb-rank { width: 150px; color: var(--coral); }
 .rb-bar { flex: 1; height: 26px; background: var(--paper2); border-radius: 13px; overflow: hidden; }
 .rb-bar i { display: block; height: 100%; min-width: 4px; background: var(--teal); border-radius: 13px; }
-.rb-bar i.top { background: var(--gold); }
+.rb-bar i.rb-exact-bar { background: var(--gold); }
 .rb-name { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .rb-avg { color: var(--ink2); font-size: 34px; }
 .rb-none { font-size: 34px; color: var(--ink2); }
