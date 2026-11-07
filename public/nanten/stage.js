@@ -1,7 +1,7 @@
 // 配信用画面(1920×1080)。操作画面と練習モードでは縮小して同じものを映す。
 // 演出はサーバーの時刻(phaseStart)からの経過秒で決めるので、途中から開いても同じ場面になる。
 (function (root) {
-  const { h, Clock, ruler, colorOf, syncWord } = root.UI;
+  const { h, Clock, ruler, colorOf, syncWord, crown } = root.UI;
   const C = root.MONO_CFG;
   const W = 1920, H = 1080, RULER_W = 1640;
 
@@ -17,7 +17,7 @@
     const head = h('div', { class: 'st-head' });
     const body = h('div', { class: 'st-body' });
     const flash = h('div', { class: 'st-flash' });
-    const pause = h('div', { class: 'st-pause hidden' }, h('div', null, h('b', null, '一時停止中'), h('span', null, '配信者の操作を待っています')));
+    const pause = h('div', { class: 'st-pause hidden' }, h('div', null, h('b', null, '一時停止中'), h('span', null, '王様(配信者)の操作を待っています')));
     const conn = h('div', { class: 'st-conn hidden' }, 'サーバーにつなぎ直しています…');
     el.append(h('div', { class: 'st-bg' }), head, body, flash, pause, conn);
 
@@ -33,7 +33,7 @@
     const play = (name, op) => { if (o.sound) root.Snd.play(name, op); };
 
     // ---- 見出し(タイトル、ラウンド、参加コード)
-    const logo = h('div', { class: 'logo' }, h('span', { class: 'logo-mark' }), h('span', null, '配信者の', h('b', null, '物差し')));
+    const logo = h('div', { class: 'logo' }, crown('logo-mark'), h('span', null, 'おうさま', h('b', null, 'ナンテン?')));
     const roundChip = h('div', { class: 'round-chip hidden' });
     const qrSmall = h('canvas', { class: 'qr-small' });
     const codeBox = h('div', { class: 'code-box' }, h('div', { class: 'cb-text' }, h('small', null, '参加コード'), h('b', { class: 'cb-code' }), h('span', { class: 'cb-count' })), qrSmall);
@@ -73,14 +73,14 @@
         const count = h('div', { class: 'lb-count' });
         const el = h('div', { class: 'sc-lobby' },
           h('div', { class: 'lb-left' },
-            h('div', { class: 'lb-catch' }, '配信者の', h('br'), '「', h('em', null, 'どれくらい?'), '」を当てよう'),
+            h('div', { class: 'lb-catch' }, '王様の', h('br'), '「', h('em', null, 'どれくらい?'), '」を当てよう'),
             h('ol', { class: 'lb-rules' },
-              h('li', null, h('span', null, 'お題が出たら、配信者が「どれくらいか」を 0〜100 の数字で決める')),
-              h('li', null, h('span', null, 'みんなはスマホで、配信者が何点にしたかを予想する')),
-              h('li', null, h('span', null, '配信者の数字に近いほど高得点。', h('span', { class: 'lb-rounds' }), '問の成績で「本日の一番の理解者」が決まる'))),
+              h('li', null, h('span', null, 'お題が出たら、王様(配信者)が「どれくらいか」を 0〜100 の数字で決める')),
+              h('li', null, h('span', null, '家来(みんな)はスマホで、王様が何点にしたかを予想する')),
+              h('li', null, h('span', null, '王様の数字に近いほど高得点。', h('span', { class: 'lb-rounds' }), '問の成績で「本日の一番の家来」が決まる'))),
             h('div', { class: 'lb-example' },
               h('div', null, '例:お題「コンビニのおでん」 0 = 冷たい 〜 100 = 熱い'),
-              h('div', null, '配信者が 70、あなたが 68 なら「ぴったり!」で10点')),
+              h('div', null, '王様が 70、あなたが 68 なら「ぴったり!」で10点')),
             h('div', { class: 'lb-players' }, count, dots)),
           h('div', { class: 'lb-join card' },
             h('div', { class: 'lb-join-title' }, 'スマホで参加'),
@@ -119,7 +119,7 @@
           el: h('div', { class: 'sc-guess' },
             h('div', { class: 'topic-label' }, 'お題'),
             h('div', { class: 'topic pop-in' }, m.item),
-            h('div', { class: 'topic-ask' }, '配信者は何点にした?'),
+            h('div', { class: 'topic-ask' }, '王様は何点にした?'),
             r,
             h('div', { class: 'gs-foot' },
               h('div', { class: 'timer' }, h('div', { class: 'tm-bar' }, bar), sec),
@@ -170,7 +170,7 @@
         marks.append(dot);
         return { dot, g, exact };
       });
-      const needle = h('div', { class: 'needle', style: { left: m.answer + '%' } }, h('div', { class: 'nd-line' }), h('div', { class: 'nd-head' }));
+      const needle = h('div', { class: 'needle', style: { left: m.answer + '%' } }, crown('nd-crown'), h('div', { class: 'nd-line' }), h('div', { class: 'nd-head' }));
       marks.append(needle);
       const ans = h('div', { class: 'answer-num', style: { left: m.answer + '%' } }, h('small', null, '答え'), h('b', null, m.answer));
       marks.append(ans);
@@ -264,7 +264,7 @@
       const syncNum = h('b', null, '0');
       const el = h('div', { class: 'sc-result' },
         h('div', { class: 'rs-left card' },
-          h('div', { class: 'rs-head' }, '本日の一番の理解者'),
+          h('div', { class: 'rs-head' }, crown('rs-crown'), '本日の一番の家来'),
           first, firstSub,
           h('div', { class: 'rs-others' }, others.map(x => h('div', { class: 'rs-row' }, h('span', { class: 'rs-rank' }, x.rank + '位'), h('span', { class: 'rs-name' }, x.name), h('span', { class: 'rs-avg' }, x.avg.toFixed(1) + '点')))),
           h('div', { class: 'rs-refs' }, `参加 ${m.ranking.length}人` + (refs.length ? `(うち${m.minRounds}ラウンド未満の参考 ${refs.length}人)` : ''))),

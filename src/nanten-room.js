@@ -1,15 +1,16 @@
 import { DurableObject } from "cloudflare:workers";
-import "../public/monosashi/config.js";
-import "../public/monosashi/topics.js";
-import "../public/monosashi/engine.js";
+import "../public/nanten/config.js";
+import "../public/nanten/topics.js";
+import "../public/nanten/engine.js";
 
 /*
-  配信者の物差しの部屋:配信者(チャンネル)ごとに 1 Durable Object。名前は参加コード。
+  おうさまナンテン?の部屋:配信者(チャンネル)ごとに 1 Durable Object。名前は参加コード。
+  旧名「配信者の物差し」のときに作ったクラス名 MonosashiRoom のまま使う(名前を変えると部屋と記録が消えるため)。
   試合の進行は engine.js が決める。ここは接続の管理、保存、Alarm だけを受け持つ。
   経路(Worker から渡される)
-    /monosashi/ws/h/<コード>?key=<鍵>&view=control   配信者の操作画面
-    /monosashi/ws/h/<コード>?view=broadcast          配信用画面(鍵なし。答えは reveal まで届かない)
-    /monosashi/ws/p/<コード>?d=<端末ID>               視聴者
+    /nanten/ws/h/<コード>?key=<鍵>&view=control   配信者の操作画面
+    /nanten/ws/h/<コード>?view=broadcast          配信用画面(鍵なし。答えは reveal まで届かない)
+    /nanten/ws/p/<コード>?d=<端末ID>               視聴者
   状態はひとつのオブジェクトとして storage の "s" に保存し、休止から起きたら読み戻す。
 */
 const { MonoEngine } = globalThis;

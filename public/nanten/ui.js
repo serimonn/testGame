@@ -1,4 +1,4 @@
-// 画面の共通部品:DOMの補助、受信した状態の保持(Store)、物差し、時計。
+// 画面の共通部品:DOMの補助、受信した状態の保持(Store)、王様メーター(内部では ruler と呼ぶ)、王冠、時計。
 (function (root) {
   const C = root.MONO_CFG;
 
@@ -18,6 +18,10 @@
     return el;
   }
   const $ = (sel, el) => (el || document).querySelector(sel);
+
+  // 王冠の絵(ロゴ、答えの印に使う)
+  const CROWN_SVG = '<svg viewBox="0 0 64 48" aria-hidden="true"><path d="M4 14 L18 28 L32 6 L46 28 L60 14 L54 42 H10 Z" fill="var(--gold)" stroke="var(--ink)" stroke-width="4" stroke-linejoin="round"/><rect x="10" y="38" width="44" height="7" rx="2" fill="var(--gold-dark)" stroke="var(--ink)" stroke-width="4"/><circle cx="32" cy="27" r="4.5" fill="var(--coral)" stroke="var(--ink)" stroke-width="2.5"/><circle cx="4" cy="12" r="4" fill="var(--gold)" stroke="var(--ink)" stroke-width="3"/><circle cx="32" cy="5" r="4" fill="var(--gold)" stroke="var(--ink)" stroke-width="3"/><circle cx="60" cy="12" r="4" fill="var(--gold)" stroke="var(--ink)" stroke-width="3"/></svg>';
+  function crown(cls) { return h('span', { class: 'crown ' + (cls || ''), html: CROWN_SVG }); }
 
   // サーバー時刻とのずれ
   const Clock = {
@@ -192,5 +196,5 @@
     return `${location.origin}${dir}?view=broadcast&c=${code}`;
   }
 
-  root.UI = { h, $, Clock, createStore, ruler, stackRows, colorOf, syncWord, slider, toast, joinUrl, broadcastUrl };
+  root.UI = { h, $, crown, Clock, createStore, ruler, stackRows, colorOf, syncWord, slider, toast, joinUrl, broadcastUrl };
 })(window);

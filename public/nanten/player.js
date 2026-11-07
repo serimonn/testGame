@@ -60,7 +60,7 @@
       connecting: () => ({ el: msgCard('つないでいます…') }),
       closed: () => ({ el: msgCard('今日はおしまい', '遊んでくれてありがとうございました') }),
       wait: () => ({ el: msgCard('少し待ってね') }),
-      paused: () => ({ el: msgCard('一時停止中', '配信者の操作を待っています', specNote()) }),
+      paused: () => ({ el: msgCard('一時停止中', '王様(配信者)の操作を待っています', specNote()) }),
       join() {
         const input = h('input', { class: 'pv-input', maxlength: C.NAME_MAX, placeholder: '表示名(12文字まで)', value: savedName, enterkeyhint: 'done' });
         const err = h('div', { class: 'pv-err' });
@@ -75,8 +75,8 @@
         const btn = h('button', { class: 'btn primary big', onclick: go }, '参加する');
         input.addEventListener('keydown', e => { if (e.key === 'Enter') go(); });
         const el = h('div', { class: 'pv-card' },
-          h('div', { class: 'pv-logo' }, '配信者の', h('b', null, '物差し')),
-          h('p', { class: 'pv-lead' }, '配信者がお題に何点をつけたかを当てるゲームです。0〜100 のどこかを予想して、近いほど高得点。'),
+          h('div', { class: 'pv-logo' }, root.UI.crown('pv-crown-logo'), 'おうさま', h('b', null, 'ナンテン?')),
+          h('p', { class: 'pv-lead' }, '王様(配信者)がお題に何点をつけたかを当てるゲームです。0〜100 のどこかを予想して、近いほど高得点。'),
           h('label', { class: 'pv-label' }, '表示名(配信に出ます)'),
           input, err, btn,
           h('p', { class: 'pv-fine' }, `参加コード ${st.code}`));
@@ -88,13 +88,13 @@
       lobby() {
         const cnt = h('div', { class: 'pv-sub' });
         const el = h('div', { class: 'pv-card' },
-          h('div', { class: 'pv-big' }, '配信者が始めるのを待っています'),
+          h('div', { class: 'pv-big' }, '王様(配信者)が始めるのを待っています'),
           specNote(),
           h('div', { class: 'pv-sub' }, `あなた:${st.me.name}(名前は試合の結果で配信に出ます)`),
           cnt,
           h('ol', { class: 'pv-rules' },
             h('li', null, 'お題と、0 と 100 が何を表すかが出ます(例:0 = 冷たい、100 = 熱い)'),
-            h('li', null, '配信者が何点にするかを予想して、スライダーで選んで「決定」'),
+            h('li', null, '王様が何点にするかを予想して、スライダーで選んで「決定」'),
             h('li', null, '点数:差が3以内は10点(ぴったり!)、10以内は6点、20以内は3点、それより離れたら0点')));
         return { el, update() {
           cnt.textContent = `いま ${st.playerCount}人が参加しています`;
@@ -133,7 +133,7 @@
           h('div', { class: 'pv-gtop' },
             h('div', { class: 'pv-round' }, `ラウンド ${st.round} / ${st.totalRounds}`),
             h('div', { class: 'pv-topic' }, m.item),
-            h('div', { class: 'pv-ask' }, '配信者は何点にした?'),
+            h('div', { class: 'pv-ask' }, '王様は何点にした?'),
             mini, timer),
           h('div', { class: 'pv-gbottom' }, state, sl.el, btn));
         return {
@@ -207,13 +207,13 @@
         return { el: h('div', { class: 'pv-card' },
           h('div', { class: 'pv-round' }, '試合結果'),
           row ? h('div', { class: 'pv-myrank' + (row.rank === 1 ? ' first' : '') },
-            row.rank === 1 ? h('div', { class: 'pv-crown' }, '本日の一番の理解者!') : null,
+            row.rank === 1 ? h('div', { class: 'pv-crown' }, '本日の一番の家来!') : null,
             h('div', { class: 'pv-big' }, row.ref ? '順位の対象外(参考)' : `${row.rank}位`),
             h('div', { class: 'pv-sub' }, `平均 ${row.avg.toFixed(1)}点 ・ ぴったり ${row.exact}回 ・ ${row.roundsPlayed}ラウンド`)) : h('div', { class: 'pv-sub' }, '今回は観戦でした'),
           h('div', { class: 'pv-label' }, '上位'),
           h('div', { class: 'pv-top3' }, top3.map(x => h('div', { class: 'pv-trow' + (x.pid === myPid ? ' me' : '') }, h('b', null, x.rank + '位'), h('span', null, x.name), h('span', null, x.avg.toFixed(1) + '点')))),
           h('div', { class: 'pv-sync' }, m.syncToday === null ? '' : `今日のシンクロ率 ${m.syncToday}%(${m.syncWord})`),
-          h('div', { class: 'pv-sub' }, '配信者が「もう1回」を押すと、次の試合が始まります')) };
+          h('div', { class: 'pv-sub' }, '王様が「もう1回」を押すと、次の試合が始まります')) };
       },
     };
 
@@ -224,7 +224,7 @@
       sndBtn.textContent = soundOn ? '🔊' : '🔇';
     } }, soundOn ? '🔊' : '🔇');
     const who = h('span', { class: 'pv-who' });
-    top.append(h('span', { class: 'pv-tlogo' }, '物差し'), who, sndBtn);
+    top.append(h('span', { class: 'pv-tlogo' }, 'おうさまナンテン?'), who, sndBtn);
 
     function render(msg) {
       const k = sceneKey();

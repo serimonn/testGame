@@ -86,7 +86,7 @@
         };
         if (decided) lock();
         const el = h('div', { class: 'pn-card prepare' },
-          h('div', { class: 'pn-small' }, `ラウンド ${round} / ${m.totalRounds} ・ 答えはあなただけに見えています`),
+          h('div', { class: 'pn-small' }, `ラウンド ${round} / ${m.totalRounds} ・ 王様の答えはあなただけに見えています`),
           h('div', { class: 'pn-topic' }, m.item),
           h('div', { class: 'pn-scale' }, h('span', null, '0 = ' + m.scale.left), h('span', null, '100 = ' + m.scale.right)),
           sl.el, btn, timer,

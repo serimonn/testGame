@@ -9,8 +9,9 @@ Cloudflare Workers で動くブラウザゲーム置き場。ゲームごとにU
 | `/gattai-drive/ws/<部屋コード>` | 合体ドライブの対戦用WebSocket（Durable Object） |
 | `/hezumo/` | 屁相撲（ひとり用 / PCで2人） |
 | `/elevator/` | エレベーター係の地獄（ひとり用、スマホ縦） |
-| `/monosashi/` | 配信者の物差し（配信者と視聴者1〜100人 / CPUと練習） |
-| `/monosashi/ws/(h\|p)/<参加コード>` | 配信者の物差しのWebSocket（Durable Object、配信者ごとに1つ） |
+| `/nanten/` | おうさまナンテン?（王様＝配信者と家来＝視聴者1〜100人 / CPUと練習） |
+| `/nanten/ws/(h\|p)/<参加コード>` | おうさまナンテン?のWebSocket（Durable Object、配信者ごとに1つ） |
+| `/monosashi/` | 旧名「配信者の物差し」。`/nanten/` へ転送する |
 | `/yoake/` | よあけ市（ひとり用、夜市の街づくり。スマホ横・PC） |
 
 ## 構成
@@ -123,10 +124,12 @@ npm run mock    # wranglerが無くても動く簡易サーバー
 
 ---
 
-## 配信者の物差し
+## おうさまナンテン?
 
-お題（例：コンビニのおでん）に配信者が 0〜100 の何点をつけたか（0 = 冷たい 〜 100 = 熱い）を、視聴者がスマホで当てる。5ラウンドの平均点で「本日の一番の理解者」が決まり（名前が配信に出るのは結果画面だけ。承認はなく、配信者は除外だけ行う）、全員の予想の中央値から配信者との「シンクロ率」が出る。配信者はPCで「操作画面」を開き、配信ソフトには「配信用画面」（`/monosashi/?view=broadcast&c=<参加コード>`、1920×1080）だけを入れる。`/monosashi/?practice=1` でサーバーなしの練習（CPUの視聴者）ができる。
+お題（例：コンビニのおでん）に王様（配信者）が 0〜100 の何点をつけたか（0 = 冷たい 〜 100 = 熱い）を、家来（視聴者）がスマホで当てる。王様の数字に近いほど高得点で、選んだ問題数（3・5・7・10問）の成績で「本日の一番の家来」が決まる。みんなの平均点を100点満点にしたものが「シンクロ率」。名前が配信に出るのは結果画面だけで、承認はなく、配信者は除外だけ行う。配信者はPCで「操作画面」を開き、配信ソフトには「配信用画面」（`/nanten/?view=broadcast&c=<参加コード>`、1920×1080）だけを入れる。`/nanten/?practice=1` でサーバーなしの練習（CPUの視聴者）ができる。
 
-調整する数値は `public/monosashi/config.js`、お題は `topics.js`。試合の進行は `engine.js` で、Durable Object（`src/monosashi-room.js`）と練習モードが同じものを使う。
+旧名は「配信者の物差し」（`/monosashi/`）。古いURLは `/nanten/` へ転送し、部屋と記録はそのまま引き継ぐ（Durable Object のクラス名は旧名の `MonosashiRoom` のまま）。
+
+調整する数値は `public/nanten/config.js`、お題は `topics.js`。試合の進行は `engine.js` で、Durable Object（`src/nanten-room.js`）と練習モードが同じものを使う。
 
 素材：声 VOICEVOX:春日部つむぎ / 効果音 Stable Audio Open / 曲 ACE-Step / 絵 ComfyUI（NoobAI-XL）

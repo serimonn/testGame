@@ -13,23 +13,24 @@
       phaseStart: 0, phaseDeadline: null, paused: false, idleRounds: 0,
       topics: [], rounds: {}, players: {}, nextPid: 1,
       lastOpen: null, lastReveal: null, lastResult: null,
-      recentTopics: [], syncHistory: [], regulars: {}, kickedDevices: {},
+      recentTopics: [], syncHistory: [], syncVer: SYNC_VER, regulars: {}, kickedDevices: {},
     };
   }
+
+  // シンクロ率の式を変えたら上げる。古い式の推移は比べられないので消す
+  const SYNC_VER = 2;
 
   // 得点、シンクロ率、順位(テストしやすいよう純粋な関数にする)
   function points(d) {
     for (const [lim, p] of C.scoreTiers) if (d <= lim) return p;
     return 0;
   }
-  function median(vals) {
-    if (!vals.length) return null;
-    const v = vals.slice().sort((a, b) => a - b), h = v.length >> 1;
-    return v.length % 2 ? v[h] : (v[h - 1] + v[h]) / 2;
-  }
+  // シンクロ率 = 予想した人の得点の平均を100点満点にしたもの(全員ぴったりで100%、適当に予想すると約20%)
+  const MAX_POINTS = C.scoreTiers[0][1];
   function syncOf(vals, answer) {
-    const m = median(vals);
-    return m === null ? null : Math.round(100 - Math.abs(m - answer));
+    if (!vals.length) return null;
+    const sum = vals.reduce((a, v) => a + points(Math.abs(v - answer)), 0);
+    return Math.round(sum / vals.length / MAX_POINTS * 100);
   }
   function syncWord(v) {
     if (v === null || v === undefined) return '';
@@ -89,6 +90,7 @@
     constructor(state, io) {
       this.s = state;
       this.io = io;
+      if (state.syncVer !== SYNC_VER) { state.syncHistory = []; state.syncVer = SYNC_VER; }
       this.countTimer = null;
       this.lastCountAt = 0;
       this.lastCountSent = '';
@@ -494,5 +496,5 @@
     },
   };
 
-  root.MonoEngine = { Engine, newState, points, median, syncOf, syncWord, rank, cleanName, pickTopics, topicInfo };
+  root.MonoEngine = { Engine, newState, points, syncOf, syncWord, rank, cleanName, pickTopics, topicInfo };
 })(typeof globalThis !== 'undefined' ? globalThis : window);
