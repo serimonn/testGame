@@ -23,6 +23,7 @@
   // ---------- 状態 ----------
   let town = null, night = null, scene = 'title', tool = 'road', speed = 1, paused = false;
   let dusk = 0, duskTo = 0, hover = null, t = 0, guideT = 0, told = {}, sum = null;
+  let cat = 'michi', pend = null;   // 開いている道具の札、スマホで置く前の仮置き
   const cam = { x: 0, y: 0, z: 2 };
   const TOOLS = [
     { k: 'look', name: '見る', ic: '✋' },
@@ -45,16 +46,27 @@
     { k: 'land', name: '土地', ic: '⛰', sep: true },
     { k: 'demolish', name: '取り壊し', ic: '⛏' },
   ];
+  // 道具を種類ごとの札に分ける
+  const CATS = [
+    { k: 'michi', name: '道・灯り', tools: ['look', 'road', 'lantern', 'joya', 'aburaya'] },
+    { k: 'mise', name: '店', tools: ['koyatai', 'yatai', 'oodana'] },
+    { k: 'kurashi', name: '暮らし', tools: ['nagaya', 'ido', 'kura'] },
+    { k: 'meisho', name: '名所', tools: ['chaya', 'shibai', 'yadoya'] },
+    { k: 'yokai', name: '妖怪', tools: ['taiko', 'yashiro', 'bansho'] },
+    { k: 'tochi', name: '土地', tools: ['land', 'demolish'] },
+  ];
+  const catOf = k => (CATS.find(c => c.tools.includes(k)) || CATS[0]).k;
   const icon = { road: Render.roadIcon() };
   for (const tl of TOOLS) if (tl.spr) icon[tl.k] = SPR.url(tl.spr, 2);
+  const TOUCH = matchMedia('(pointer: coarse)').matches;   // 指で操作する画面か
   const HELP = {
     look: '見る:地図を動かすだけ。置き間違いを防ぐ',
-    road: '道:人が歩き、火を運ぶ。ドラッグでまとめて敷ける', lantern: '提灯:道の近くに置ける。隣は明るく、2マス先は薄暗い',
+    road: TOUCH ? '道:人が歩き、火を運ぶ。始まりと終わりのマスをタップして敷く' : '道:人が歩き、火を運ぶ。ドラッグでまとめて敷ける', lantern: '提灯:道の近くに置ける。隣は明るく、2マス先は薄暗い',
     koyatai: '小屋台:単価¥10。働き手1人', yatai: '屋台:単価¥30。働き手2人', oodana: '大店:単価¥100。働き手4人',
     land: '土地:藪の区画を買って開く。門から遠いほど高い',
     ido: '井戸:範囲の長屋に水を届ける。宿場からは水のない長屋から働き手が出ない',
     kura: '蔵:荷車で大店に品物を運ぶ。働き手2人。城下町からは大店に品物が要る',
-    aburaya: '油屋:範囲の提灯は油の減りが遅い。働き手2人', demolish: '取り壊し:払った銭が全部戻る。ドラッグでまとめて',
+    aburaya: '油屋:範囲の提灯は油の減りが遅い。働き手2人', demolish: TOUCH ? '取り壊し:払った銭が全部戻る。始まりと終わりのマスをタップしてまとめて' : '取り壊し:払った銭が全部戻る。ドラッグでまとめて',
   };
   const WHY = { land: '藪の中', money: '銭が足りない', used: 'ふさがっている', fire: '火の通った道から遠い', out: '' };
   const priceOf = k => k === 'land' ? 0 : C.PRICE[k] || 0;
@@ -92,6 +104,8 @@
       case 'resume': paused = false; show(''); return;
       case 'prep': return prep();
       case 'home': return homeCam();
+      case 'pendok': return commitPend();
+      case 'pendno': return clearPend();
     }
   }
 
@@ -166,13 +180,14 @@
     }
     const roads = town.roads.reduce((a, b) => a + b, 0);
     const has = k => town.objs.some(o => o.type === k);
-    if (roads < 4) guide('① 門から道を敷こう(ドラッグでまとめて敷ける)');
+    if (roads < 4) guide(TOUCH ? '① 道:門の隣のマスと、伸ばしたい先のマスをタップして「置く」' : '① 門から道を敷こう(ドラッグでまとめて敷ける)');
     else if (!has('lantern')) guide('② 道の近く(黄色い点)に提灯を置こう');
     else if (!town.objs.some(o => Sim.isStall(o.type))) guide('③ 道に面して小屋台を置こう。門の働き手2人が店番をする');
     else guide('準備ができたら「夜市を開く」');
   }
   function startNight() {
     if (scene !== 'prep') return;
+    pend = null;
     if (!town.objs.some(o => Sim.isStall(o.type))) { guide('店がないと夜市を開けない', 3); Snd.play('nope'); return; }
     scene = 'night'; hover = null; night = new Sim.Night(town); night.start(); duskTo = 1; drain();
     guide(town.history.length ? '' : '夜市が開いた。人に売ると賑わいが溜まる', 5);
@@ -220,12 +235,17 @@
   function buildBar() {
     if (scene === 'prep') {
       const open = Sim.unlocked(town);
-      $tools.innerHTML = TOOLS.filter(tl => open.has(tl.k)).map(tl => {
+      const cats = CATS.filter(c => c.tools.some(k => open.has(k)));
+      if (!cats.some(c => c.k === cat)) cat = cats[0].k;
+      const list = CATS.find(c => c.k === cat).tools;
+      $tools.innerHTML = `<div class="cats">${cats.map(c => `<button class="cat${c.k === cat ? ' on' : ''}" data-cat="${c.k}">${c.name}</button>`).join('')}</div>` +
+        TOOLS.filter(tl => open.has(tl.k) && list.includes(tl.k)).map(tl => {
         const p = priceOf(tl.k);
         const ic = tl.spr || tl.k === 'road' ? `<img src="${icon[tl.k]}" alt="">` : `<span class="ic">${tl.ic}</span>`;
-        return `<button class="tool${tl.sep ? ' sep' : ''}" data-tool="${tl.k}" title="${HELP[tl.k] || (BUILDS[tl.k] ? BUILDS[tl.k].name + ':' + BUILDS[tl.k].desc : '')}">${ic}${tl.name}${p ? `<span class="p">¥${p}</span>` : ''}</button>`;
+        return `<button class="tool" data-tool="${tl.k}" title="${HELP[tl.k] || (BUILDS[tl.k] ? BUILDS[tl.k].name + ':' + BUILDS[tl.k].desc : '')}">${ic}${tl.name}${p ? `<span class="p">¥${p}</span>` : ''}</button>`;
       }).join('');
       $tools.querySelectorAll('[data-tool]').forEach(b => b.addEventListener('click', () => { Snd.unlock(); Snd.play('btn'); setTool(b.dataset.tool); }));
+      $tools.querySelectorAll('[data-cat]').forEach(b => b.addEventListener('click', () => { Snd.unlock(); Snd.play('btn'); cat = b.dataset.cat; buildBar(); updateBar(); }));
     } else $tools.innerHTML = scene === 'night' ? '<div class="help nighthelp" style="font-size:12px;align-self:center;margin:0 6px">提灯タップ:火を細く・戻す/妖怪タップ:追い払う/ドラッグ:地図を動かす</div>' : '';
     let acts = '<button class="act" data-a="home" title="門へ戻る">門<small>⌂</small></button>';
     if (scene === 'prep') acts += `<button class="act go" data-a="start">夜市を開く<small style="color:#fff">第${town.night}夜</small></button>`;
@@ -234,7 +254,9 @@
     $acts.querySelectorAll('[data-a]').forEach(b => b.addEventListener('click', () => { Snd.unlock(); Snd.play('btn'); go(b.dataset.a); }));
   }
   function setTool(k) {
-    tool = k; updateBar();
+    tool = k; clearPend();
+    if (catOf(k) !== cat) { cat = catOf(k); buildBar(); }
+    updateBar();
     const h = HELP[k] || (BUILDS[k] ? `${BUILDS[k].name}:${BUILDS[k].desc}` : '');
     if (town.history.length) guide(h, 4); else prepGuide();
   }
@@ -299,6 +321,63 @@
       refresh();
     } else if (!quiet) Snd.play('nope');
   }
+  // ---------- スマホ:タップで仮置きし、もう一度タップか「置く」で確定する ----------
+  // 道と取り壊しは、1回目のタップが始まり、2回目以降が終わり。L字の線で選ぶ
+  function lineTiles(a, b) {
+    const out = [], sx = Math.sign(b.c - a.c), sy = Math.sign(b.r - a.r);
+    for (let c = a.c; ; c += sx) { out.push({ c, r: a.r }); if (c === b.c) break; }
+    if (sy) for (let r = a.r + sy; ; r += sy) { out.push({ c: b.c, r }); if (r === b.r) break; }
+    return out;
+  }
+  function pendInfo() {
+    let cost = 0, n = 0;
+    for (const p of pend.tiles) {
+      const i = Sim.idx(p.c, p.r), o = town.objs.find(o => o.c === p.c && o.r === p.r);
+      if (tool === 'demolish') p.ok = !!o || (!!town.roads[i] && !(p.c === C.GATE.c && p.r === C.GATE.r));
+      else if (tool === 'land') p.ok = Sim.landBuyable(town, Sim.landOf(p.c, p.r));
+      else { const why = Sim.canBuild(Object.assign({}, town, { money: 1e12 }), tool, p.c, p.r, night); p.ok = !why; p.why = WHY[why]; }
+      if (!p.ok) continue;
+      n++;
+      if (tool === 'demolish') cost -= o ? Math.floor(C.PRICE[o.type] * C.REFUND) : Math.floor(C.PRICE.road * C.REFUND);
+      else if (tool === 'land') cost += Sim.landCost(Sim.landOf(p.c, p.r));
+      else cost += C.PRICE[tool];
+    }
+    return { cost, n };
+  }
+  function showPend() {
+    if (!pend) { if ($ui.querySelector('.pend')) show(''); return; }
+    const { cost, n } = pendInfo(), name = tool === 'land' ? '土地' : tool === 'demolish' ? '取り壊し' : (BUILDS[tool] || STALLS[tool] || { name: '道' }).name;
+    const what = tool === 'land' ? '土地を買う' : tool === 'demolish' ? `${n}か所を取り壊す` : tool === 'road' ? `道を${n}マス敷く` : `${name}を置く`;
+    const price = cost < 0 ? `+¥${-cost}` : `¥${cost}`;
+    const can = n > 0 && cost <= town.money;
+    const bad = pend.tiles.find(p => !p.ok && p.why);
+    const line = tool === 'road' || tool === 'demolish';
+    show(`<div class="pendrow">
+      <span>${what} <b>${price}</b>${!n && bad ? `<small>${bad.why}</small>` : cost > town.money ? '<small>銭が足りない</small>' : ''}${line && pend.tiles.length === 1 ? '<small>終わりのマスをタップ</small>' : ''}</span>
+      <button class="btn" data-go="pendok" ${can ? '' : 'disabled'}>置く</button>
+      <button class="btn sub" data-go="pendno">やめる</button></div>`, 'dock pend');
+  }
+  function clearPend() { pend = null; showPend(); }
+  function pendTap(c, r) {
+    if (tool === 'look') return;
+    const line = tool === 'road' || tool === 'demolish';
+    const last = pend && pend.tool === tool && pend.tiles[pend.tiles.length - 1];
+    // 同じマスをもう一度タップしたら確定
+    if (last && last.c === c && last.r === r) return commitPend();
+    if (line && pend && pend.tool === tool) pend.tiles = lineTiles(pend.a, { c, r });
+    else pend = line ? { tool, a: { c, r }, tiles: [{ c, r }] } : { tool, tiles: [{ c, r }] };
+    tell('pend', 'もう一度同じマスをタップするか「置く」で決まる', 4);
+    showPend();
+  }
+  function commitPend() {
+    if (!pend) return;
+    pendInfo();
+    const before = JSON.stringify([town.money, town.objs.length, town.land]);
+    for (const p of pend.tiles) if (p.ok) applyAt(p.c, p.r, true);
+    if (JSON.stringify([town.money, town.objs.length, town.land]) === before) Snd.play('nope');
+    pend = null; show(''); refresh();
+  }
+
   // ポインターを追う。1本:塗る(道、取り壊し)か、動かす・タップ。2本:つまんで拡大縮小と移動
   const pts = new Map();
   let gest = null;
@@ -316,7 +395,7 @@
     if (pts.size > 2) return;
     const c = Math.floor(p.x / T), r = Math.floor(p.y / T);
     const panBtn = e.pointerType === 'mouse' && e.button !== 0;
-    if (!panBtn && paintTool()) { gest = { kind: 'paint', c, r }; applyAt(c, r); hover = hoverAt(p); return; }
+    if (!panBtn && paintTool() && e.pointerType === 'mouse') { gest = { kind: 'paint', c, r }; applyAt(c, r); hover = hoverAt(p); return; }
     gest = { kind: 'tap', sx: p.sx, sy: p.sy, moved: false, pan: panBtn };
   });
   $cv.addEventListener('pointermove', e => {
@@ -354,7 +433,10 @@
     if (gest.kind === 'pinch') { if (!pts.size) gest = null; return; }
     if (gest.kind === 'tap' && !gest.moved && !gest.pan && p && e.type === 'pointerup') {
       const c = Math.floor(p.x / T), r = Math.floor(p.y / T);
-      if (scene === 'prep') { applyAt(c, r); hover = e.pointerType === 'mouse' ? hoverAt(p) : null; }
+      if (scene === 'prep') {
+        if (e.pointerType === 'mouse') { applyAt(c, r); hover = hoverAt(p); }
+        else pendTap(c, r);
+      }
       else if (scene === 'night' && !paused && night.poke(p.x, p.y)) { drain(); updateBar(); }
     }
     gest = null;
@@ -433,7 +515,9 @@
     }
     if (scene === 'night' && t % 10 === 0) updateBar();
     Snd.tick(scene === 'night' && !paused, speed);
-    Render.draw({ night, town, dusk, hover: paused ? null : hover, t, prep: scene === 'prep', tool, cam });
+    // スマホの仮置きは、1マスなら置いたときの様子(範囲、札)も見せる
+    const ph = pend && pend.tiles.length === 1 && pend.tool !== 'road' && pend.tool !== 'demolish' ? hoverAt({ x: pend.tiles[0].c * T + 1, y: pend.tiles[0].r * T + 1 }) : null;
+    Render.draw({ night, town, dusk, hover: paused ? null : (ph || hover), pend: pend && scene === 'prep' ? pend.tiles : null, t, prep: scene === 'prep', tool, cam });
     perf.n++; perf.ms += performance.now() - t0;
     requestAnimationFrame(frame);
   }

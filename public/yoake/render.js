@@ -248,6 +248,11 @@
     for (const f of after) f();
     drawFx();
 
+    // スマホの仮置き(道の線、取り壊しの範囲など)
+    if (v.pend) for (const p of v.pend) {
+      x.fillStyle = p.ok ? '#ffe14d40' : '#ff6a3d40'; x.fillRect(p.c * T, p.r * T, T, T);
+      x.strokeStyle = p.ok ? '#ffe14d' : '#ff6a3d'; x.lineWidth = 2 / cam.z; x.strokeRect(p.c * T + 0.5, p.r * T + 0.5, T - 1, T - 1);
+    }
     const h = v.hover;
     if (h && Sim.inMap(h.c, h.r) && h.tool !== 'land') {
       x.strokeStyle = h.ok ? '#ffe14d' : '#ff6a3d'; x.lineWidth = 2 / cam.z;
